@@ -20,10 +20,11 @@ Copiez `.env.example` vers `.env.local` et renseignez votre projet Supabase (auc
 - Validation des opérations (`src/lib/validation/`), transport Supabase par API REST testé avec un faux serveur (`src/lib/offline/supabase-transport.ts`), module de badges (`src/lib/badges/`)
 - `vercel.json` force le framework Next.js (corrige les 404 si Vercel ne détecte pas le projet)
 - Authentification e-mail (`src/app/connexion`), profil, enregistrement d'un défi dans Supabase (`src/lib/challenges/`)
+- Accueil : lecture du jour, validation hors connexion, file d'attente et synchronisation (`src/components/TodayReading.tsx`)
 - Coquille PWA (manifest, Service Worker, logo), navigation 5 entrées, aperçu de calendrier fonctionnel sur `/defis`
 
 ## Vérifié
-52 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
+57 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
 
 ## NON vérifié
 - `npm install`, `tsc`, `next build` : jamais exécutés

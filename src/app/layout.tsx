@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Bible Challenge", description: "Lisez la Bible chaque jour, seul ou en équipe, même sans connexion.",
@@ -13,7 +14,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <body>
-        <main className="mx-auto w-full max-w-2xl px-4 pt-6">{children}</main>
+        <AuthProvider>
+          <main className="mx-auto w-full max-w-2xl px-4 pt-6">{children}</main>
+        </AuthProvider>
         <BottomNav />
         <ServiceWorker />
       </body>

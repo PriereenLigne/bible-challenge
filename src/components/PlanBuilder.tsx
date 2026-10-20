@@ -1,5 +1,9 @@
 "use client";
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import { getSupabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
+import { buildChallengeRow } from "@/lib/challenges/build";
 import { BOOK_BY_ID } from "@/lib/bible/canon";
 import { generatePlan } from "@/lib/plans/generate";
 import { DURATIONS, SCOPES, type ScopeId } from "@/lib/plans/scopes";
@@ -16,6 +20,24 @@ export function PlanBuilder() {
   const plan = useMemo(() => generatePlan(SCOPES[scope].books, days, start), [scope, days, start]);
   const perDay = (plan.totalChapters / days).toFixed(1);
   const rest = plan.days.filter((d) => d.rest).length;
+  const { configured, session } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function create() {
+    const sb = getSupabase();
+    if (!sb || !session) return;
+    if (!navigator.onLine) { setMsg({ ok: false, text: "Une connexion Internet est nécessaire pour enregistrer un défi." }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const row = buildChallengeRow(session.user.id, scope, durId, start, today());
+      const { error } = await sb.from("challenges").insert(row);
+      if (error) throw new Error(error.message);
+      setMsg({ ok: true, text: `Défi « ${row.title} » enregistré (du ${row.start_date} au ${row.end_date}).` });
+    } catch (e) {
+      setMsg({ ok: false, text: `Échec de l’enregistrement : ${(e as Error).message}` });
+    } finally { setBusy(false); }
+  }
 
   return (
     <div className="space-y-5">
@@ -51,7 +73,10 @@ export function PlanBuilder() {
           ))}
         </ol>
       </section>
-      <p className="text-sm text-muted">L’enregistrement du défi sera disponible après la connexion à Supabase (phase suivante). Cet aperçu est calculé sur votre appareil, sans Internet.</p>
+      {!configured ? <p className="text-sm text-muted">Serveur non configuré : l’enregistrement est indisponible.</p>
+        : !session ? <Link href="/connexion" className="inline-flex min-h-12 items-center rounded-xl bg-forest px-5 font-medium text-bg">Se connecter pour enregistrer ce défi</Link>
+        : <button type="button" onClick={create} disabled={busy} className="min-h-12 rounded-xl bg-forest px-5 font-medium text-bg disabled:opacity-60">{busy ? "Enregistrement…" : "Enregistrer ce défi"}</button>}
+      {msg && <p role="status" className={`text-sm ${msg.ok ? "text-progress" : "text-calm"}`}>{msg.text}</p>}
     </div>
   );
 }

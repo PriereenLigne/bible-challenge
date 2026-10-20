@@ -19,10 +19,11 @@ Copiez `.env.example` vers `.env.local` et renseignez votre projet Supabase (auc
 - Migration SQL avec RLS et fonction `apply_reading_events` : `supabase/migrations/0001_core.sql`
 - Validation des opérations (`src/lib/validation/`), transport Supabase par API REST testé avec un faux serveur (`src/lib/offline/supabase-transport.ts`), module de badges (`src/lib/badges/`)
 - `vercel.json` force le framework Next.js (corrige les 404 si Vercel ne détecte pas le projet)
+- Authentification e-mail (`src/app/connexion`), profil, enregistrement d'un défi dans Supabase (`src/lib/challenges/`)
 - Coquille PWA (manifest, Service Worker, logo), navigation 5 entrées, aperçu de calendrier fonctionnel sur `/defis`
 
 ## Vérifié
-49 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
+52 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
 
 ## NON vérifié
 - `npm install`, `tsc`, `next build` : jamais exécutés

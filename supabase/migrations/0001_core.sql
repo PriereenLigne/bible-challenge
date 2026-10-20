@@ -1,5 +1,4 @@
 -- BIBLE CHALLENGE — migration 0001 (NON TESTÉE sur une base réelle : à appliquer d'abord sur un projet de développement)
-create extension if not exists pgcrypto;
 
 -- Profils : 1 ligne par utilisateur Supabase Auth
 create table public.profiles (

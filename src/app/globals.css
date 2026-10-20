@@ -1,8 +1,0 @@
-@tailwind base; @tailwind components; @tailwind utilities;
-:root { --bg:#F8F6F0; --surface:#FFFFFF; --ink:#173F35; --muted:#5B6B65; --line:#E3DFD2; --forest:#173F35; --progress:#3B9467; --sand:#E9D6A5; --calm:#315D88; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0F1F1B; --surface:#173F35; --ink:#F8F6F0; --muted:#B9C7C1; --line:#27564A; --forest:#F8F6F0; --progress:#5FBF8A; --sand:#E9D6A5; --calm:#8DB4DB; } }
-:root[data-theme="dark"] { --bg:#0F1F1B; --surface:#173F35; --ink:#F8F6F0; --muted:#B9C7C1; --line:#27564A; --forest:#F8F6F0; --progress:#5FBF8A; --sand:#E9D6A5; --calm:#8DB4DB; }
-html { background: var(--bg); color: var(--ink); }
-body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100dvh; padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
-:focus-visible { outline: 3px solid var(--calm); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

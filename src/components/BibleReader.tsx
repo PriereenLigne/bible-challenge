@@ -1,7 +1,11 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BOOK_BY_ID, PROTESTANT_CANON } from "@/lib/bible/canon";
-import { kv } from "@/lib/offline/local-db";
+import { kv, readsStore } from "@/lib/offline/local-db";
+import { markChapterRead, runSync } from "@/lib/offline/mark-read";
+import { parseReaderParams } from "@/lib/bible/params";
+import { localToday, type ChallengeLite } from "@/lib/challenges/active";
 import { loadBook, loadVersions, type BibleVersion, type BookText } from "@/lib/bible/store";
 import { DownloadPanel } from "@/components/DownloadPanel";
 import { Notice } from "@/components/Notice";
@@ -25,6 +29,9 @@ export function BibleReader() {
   const [text, setText] = useState<BookText | null>(null);
   const [size, setSize] = useState(19);
   const [error, setError] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<ChallengeLite | null>(null);
+  const [alreadyRead, setAlreadyRead] = useState(false);
+  const [markMsg, setMarkMsg] = useState<string | null>(null);
 
   useEffect(() => {
     loadVersions().then(async (list) => {
@@ -33,6 +40,11 @@ export function BibleReader() {
       setVid(last && list.some((v) => v.id === last.vid) ? last.vid : list[0]?.id ?? "");
       if (last?.pos) setPos(last.pos);
       if (last?.size) setSize(last.size);
+      const q = parseReaderParams(window.location.search); // ouverture depuis la lecture du jour
+      if (q) {
+        setPos({ book: q.book, chapter: q.chapter });
+        if (q.challengeId) setChallenge((await kv.get<ChallengeLite>(`challenge:${q.challengeId}`).catch(() => undefined)) ?? null);
+      }
     });
   }, []);
   useEffect(() => { if (vid) void kv.set("reader:last", { vid, pos, size }).catch((e) => console.error("Position non mémorisée :", e)); }, [vid, pos, size]);
@@ -45,6 +57,24 @@ export function BibleReader() {
     loadBook(version, pos.book).then((t) => { if (active) setText(t); }).catch((e) => { if (active) { setText(null); setError((e as Error).message); } });
     return () => { active = false; };
   }, [version, pos.book, text?.id]);
+
+  const cBook = challenge?.book_ids.includes(pos.book) ?? false; // seuls les chapitres du défi peuvent être validés
+  const cId = challenge?.id;
+  useEffect(() => {
+    setMarkMsg(null);
+    if (!cId) { setAlreadyRead(false); return; }
+    readsStore.forChallenge(cId).then((rs) => setAlreadyRead(rs.some((r) => r.book === pos.book && r.chapter === pos.chapter))).catch((e) => console.error("Lecture locale :", e));
+  }, [cId, pos.book, pos.chapter]);
+
+  async function markRead() {
+    if (!challenge) return;
+    try {
+      await markChapterRead(challenge.id, pos.book, pos.chapter, localToday());
+      setAlreadyRead(true);
+      const pending = await runSync();
+      setMarkMsg(pending > 0 ? "Enregistré sur l’appareil. Il sera envoyé dès que la connexion revient." : "Enregistré et synchronisé.");
+    } catch (e) { setMarkMsg(`Impossible d’enregistrer : ${(e as Error).message}`); }
+  }
 
   if (versions === null) return <p className="text-sm text-muted">Chargement…</p>;
   if (!version) return <Notice title="Aucun texte biblique installé"><p>Aucune traduction dont la licence autorise la reproduction n’est installée pour l’instant.</p></Notice>;
@@ -77,6 +107,17 @@ export function BibleReader() {
         {chapter && <p>{chapter.v.map(([n, t]) => <span key={n}><sup className="mr-1 text-[0.6em] text-muted">{n}</sup>{t} </span>)}</p>}
       </article>
 
+      {challenge && cBook && (
+        <div className="rounded-2xl border border-line bg-surface p-4">
+          <p className="text-sm text-muted">Défi : {challenge.title}</p>
+          <button type="button" disabled={alreadyRead} onClick={() => void markRead()}
+            className={`mt-2 min-h-12 w-full rounded-xl px-5 font-medium ${alreadyRead ? "bg-progress/15 text-progress" : "bg-forest text-bg"}`}>
+            {alreadyRead ? "Chapitre lu ✓" : "Marquer ce chapitre comme lu"}
+          </button>
+          {markMsg && <p role="status" className="mt-2 text-sm text-calm">{markMsg}</p>}
+          <Link href="/" className="mt-2 inline-flex min-h-11 items-center text-sm text-calm underline">← Retour à ma lecture du jour</Link>
+        </div>
+      )}
       <div className="flex justify-between">
         <button type="button" className={nav} disabled={!prev} onClick={() => prev && setPos(prev)}>← Précédent</button>
         <button type="button" className={nav} disabled={!next} onClick={() => next && setPos(next)}>Suivant →</button>

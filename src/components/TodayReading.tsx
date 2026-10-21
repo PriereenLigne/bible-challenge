@@ -7,8 +7,8 @@ import { getSupabase, supabaseConfig } from "@/lib/supabase/client";
 import { BOOK_BY_ID } from "@/lib/bible/canon";
 import { kv, readKey, readsStore, type LocalRead } from "@/lib/offline/local-db";
 import { idbOpStore } from "@/lib/offline/idb-store";
-import { enqueue, syncOnce } from "@/lib/offline/sync";
-import { createSupabaseTransport } from "@/lib/offline/supabase-transport";
+import { markChapterRead, runSync as runSyncPass } from "@/lib/offline/mark-read";
+import { readerHref } from "@/lib/bible/params";
 import { localToday, pickChallenge, planOf, todayState, type ChallengeLite } from "@/lib/challenges/active";
 import { computeProgress } from "@/lib/progress/compute";
 
@@ -27,13 +27,8 @@ export function TodayReading() {
   const [error, setError] = useState<string | null>(null);
 
   const runSync = useCallback(async () => {
-    const sb = getSupabase(); const cfg = supabaseConfig();
-    if (!sb || !cfg) return;
-    try {
-      const transport = createSupabaseTransport({ url: cfg.url, anonKey: cfg.key, getAccessToken: async () => (await sb.auth.getSession()).data.session?.access_token ?? null });
-      await syncOnce(idbOpStore, transport, Date.now());
-      setPending((await idbOpStore.getAll()).length);
-    } catch (e) { console.error("Synchronisation :", e); setError("Synchronisation impossible pour le moment. Vos lectures sont conservées."); }
+    try { setPending(await runSyncPass()); }
+    catch (e) { console.error("Synchronisation :", e); setError("Synchronisation impossible pour le moment. Vos lectures sont conservées."); }
   }, []);
 
   // état réseau + resynchronisation au retour de la connexion
@@ -53,14 +48,18 @@ export function TodayReading() {
       const cacheKey = `challenges:${uid}`;
       try {
         const cached = await kv.get<ChallengeLite[]>(cacheKey);
-        if (cached && active) setChallenge(pickChallenge(cached, today));
+        const fromCache = cached ? pickChallenge(cached, today) : null;
+        if (fromCache) await kv.set(`challenge:${fromCache.id}`, fromCache);
+        if (fromCache && active) setChallenge(fromCache);
         const sb = getSupabase();
         if (navigator.onLine && sb) {
           const { data, error: err } = await sb.from("challenges").select("id,title,scope,book_ids,start_date,end_date,status").in("status", ["active", "planned"]);
           if (err) throw new Error(err.message);
           const list = (data ?? []) as ChallengeLite[];
           await kv.set(cacheKey, list);
-          if (active) setChallenge(pickChallenge(list, today));
+          const picked = pickChallenge(list, today);
+          if (picked) await kv.set(`challenge:${picked.id}`, picked);
+          if (active) setChallenge(picked);
         }
         setPending((await idbOpStore.getAll()).length);
       } catch (e) { if (active) setError(`Chargement du défi : ${(e as Error).message}`); }
@@ -102,14 +101,11 @@ export function TodayReading() {
     if (!challenge) return;
     const key = readKey(challenge.id, book, chapter);
     if (reads.has(key)) return;
-    const rec: LocalRead = { key, challengeId: challenge.id, book, chapter, readOn: today };
     try {
-      await readsStore.put(rec); // 1. enregistré sur l'appareil
-      await enqueue(idbOpStore, { type: "reading_event", challengeId: challenge.id, book, chapter, readOn: today }, Date.now(), () => crypto.randomUUID()); // 2. mis en file
+      const rec = await markChapterRead(challenge.id, book, chapter, today);
       setReads((m) => new Map(m).set(key, rec));
-      setPending((await idbOpStore.getAll()).length);
       setError(null);
-      void runSync(); // 3. envoyé dès que possible
+      void runSync();
     } catch (e) { setError(`Impossible d'enregistrer la lecture : ${(e as Error).message}`); }
   }
 
@@ -152,7 +148,7 @@ export function TodayReading() {
                   const done = reads.has(readKey(challenge.id, book, chapter));
                   return (
                     <li key={`${book}:${chapter}`} className="flex items-center justify-between gap-3 py-2">
-                      <span>{BOOK_BY_ID.get(book)?.name ?? book} {chapter}</span>
+                      <Link href={readerHref(book, chapter, challenge.id)} className="min-h-11 flex-1 py-2 underline decoration-line underline-offset-4">{BOOK_BY_ID.get(book)?.name ?? book} {chapter}</Link>
                       <button type="button" disabled={done} onClick={() => void markRead(book, chapter)}
                         className={`min-h-11 rounded-xl px-4 text-sm font-medium ${done ? "bg-progress/15 text-progress" : "bg-forest text-bg"}`}>
                         {done ? "Lu ✓" : "Marquer comme lu"}

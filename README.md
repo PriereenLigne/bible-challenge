@@ -21,11 +21,12 @@ Copiez `.env.example` vers `.env.local` et renseignez votre projet Supabase (auc
 - `vercel.json` force le framework Next.js (corrige les 404 si Vercel ne détecte pas le projet)
 - Authentification e-mail (`src/app/connexion`), profil, enregistrement d'un défi dans Supabase (`src/lib/challenges/`)
 - Accueil : lecture du jour, validation hors connexion, file d'attente et synchronisation (`src/components/TodayReading.tsx`)
-- Lecteur biblique (`src/components/BibleReader.tsx`), téléchargement hors connexion (`DownloadPanel`), importeur USFM vérifié contre le canon (`scripts/import-usfm.mjs`)
+- Texte Louis Segond 1910 (domaine public) installé dans `public/bibles/lsg`, vérifié : 66 livres, 1189 chapitres, 31 170 versets (voir `docs/CONTENU-LICENCES.md`)
+- Lecteur biblique (`src/components/BibleReader.tsx`), téléchargement hors connexion (`DownloadPanel`), importeur USFM vérifié contre le canon (`scripts/import-bible.mjs`)
 - Coquille PWA (manifest, Service Worker, logo), navigation 5 entrées, aperçu de calendrier fonctionnel sur `/defis`
 
 ## Vérifié
-63 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
+66 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
 
 ## NON vérifié
 - `npm install`, `tsc`, `next build` : jamais exécutés

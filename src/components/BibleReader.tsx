@@ -99,12 +99,27 @@ export function BibleReader() {
         <button type="button" className={nav} aria-label="Plus grand" onClick={() => setSize((s) => Math.min(30, s + 2))}>A+</button>
       </div>
 
-      <article lang={version.language} className="font-reading leading-relaxed" style={{ fontSize: size }}>
-        <h1 className="mb-3 text-2xl font-semibold text-forest">{def?.name} {pos.chapter}</h1>
+      <article lang={version.language} className="font-reading" style={{ fontSize: size }}>
+        <header className="mb-8 text-center">
+          <p className="font-ui text-[0.55em] uppercase tracking-[0.3em] text-muted">{def?.testament === "AT" ? "Ancien Testament" : "Nouveau Testament"}</p>
+          <h1 className="mt-1 text-[1.6em] font-semibold leading-tight text-forest">{def?.name}</h1>
+          <p className="mt-2 text-[3.4em] font-light leading-none text-sand" aria-label={`Chapitre ${pos.chapter}`}>{pos.chapter}</p>
+          <p aria-hidden="true" className="mt-3 text-sand">✦</p>
+        </header>
         {error && <p role="alert" className="text-calm">{error}</p>}
-        {!error && !chapter && <p className="text-muted">Chargement…</p>}
-        {chapter?.t && <p className="mb-2 italic text-muted">{chapter.t}</p>}
-        {chapter && <p>{chapter.v.map(([n, t]) => <span key={n}><sup className="mr-1 text-[0.6em] text-muted">{n}</sup>{t} </span>)}</p>}
+        {!error && !chapter && <p className="text-center text-muted">Chargement…</p>}
+        {chapter?.t && <p className="mb-5 text-center italic text-muted">{chapter.t}</p>}
+        {chapter && (
+          <div className="space-y-3">
+            {chapter.v.map(([n, t]) => (
+              <p key={n} className="grid grid-cols-[2.4rem_1fr] gap-x-2 leading-[1.7]">
+                <span className="select-none pt-[0.38em] text-right font-ui text-[0.62em] font-bold text-progress">{n}</span>
+                <span>{t}</span>
+              </p>
+            ))}
+          </div>
+        )}
+        <p aria-hidden="true" className="mt-8 text-center text-sand">✦</p>
       </article>
 
       {challenge && cBook && (

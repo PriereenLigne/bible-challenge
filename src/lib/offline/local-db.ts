@@ -1,6 +1,7 @@
 const DB = "bible-challenge";
-const VERSION = 2;
-export const STORES = { queue: "op_queue", kv: "kv", reads: "reads" } as const;
+const VERSION = 3;
+import type { LocalNote } from "@/lib/notes/reconcile";
+export const STORES = { queue: "op_queue", kv: "kv", reads: "reads", notes: "notes", days: "days" } as const;
 
 export function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -10,6 +11,8 @@ export function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORES.queue)) db.createObjectStore(STORES.queue, { keyPath: "opId" });
       if (!db.objectStoreNames.contains(STORES.kv)) db.createObjectStore(STORES.kv);
       if (!db.objectStoreNames.contains(STORES.reads)) db.createObjectStore(STORES.reads, { keyPath: "key" });
+      if (!db.objectStoreNames.contains(STORES.notes)) db.createObjectStore(STORES.notes, { keyPath: "refKey" });
+      if (!db.objectStoreNames.contains(STORES.days)) db.createObjectStore(STORES.days, { keyPath: "key" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -39,5 +42,21 @@ export const readsStore = {
   forChallenge: async (challengeId: string) => {
     const all = await run<LocalRead[]>(STORES.reads, "readonly", (s) => s.getAll() as IDBRequest<LocalRead[]>);
     return all.filter((r) => r.challengeId === challengeId);
+  },
+};
+
+export type { LocalNote };
+export const notesStore = {
+  get: (refKey: string) => run<LocalNote | undefined>(STORES.notes, "readonly", (s) => s.get(refKey) as IDBRequest<LocalNote | undefined>),
+  put: async (n: LocalNote) => { await run(STORES.notes, "readwrite", (s) => s.put(n)); },
+};
+
+export interface DayDone { key: string; challengeId: string; dayIndex: number; score: number; total: number; doneOn: string }
+export const dayKey = (challengeId: string, dayIndex: number) => `${challengeId}:${dayIndex}`;
+export const daysStore = {
+  put: async (d: DayDone) => { await run(STORES.days, "readwrite", (s) => s.put(d)); },
+  forChallenge: async (challengeId: string) => {
+    const all = await run<DayDone[]>(STORES.days, "readonly", (s) => s.getAll() as IDBRequest<DayDone[]>);
+    return all.filter((d) => d.challengeId === challengeId);
   },
 };

@@ -1,6 +1,7 @@
 export type OpPayload =
   | { type: "reading_event"; challengeId: string; book: string; chapter: number; readOn: string }
-  | { type: "note_upsert"; noteId: string; body: string; baseVersion: number };
+  | { type: "day_quiz"; challengeId: string; dayIndex: number; score: number; total: number; doneOn: string }
+  | { type: "note_upsert"; refKey: string; body: string; baseVersion: number };
 
 export interface QueuedOp {
   /** UUID généré sur l'appareil : clé d'idempotence côté serveur. */

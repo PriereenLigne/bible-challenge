@@ -24,11 +24,12 @@ Copiez `.env.example` vers `.env.local` et renseignez votre projet Supabase (auc
 - Texte Louis Segond 1910 (domaine public) installé dans `public/bibles/lsg`, vérifié : 66 livres, 1189 chapitres, 31 170 versets (voir `docs/CONTENU-LICENCES.md`)
 - Liens « lecture du jour » vers le lecteur avec validation du chapitre (`src/lib/offline/mark-read.ts`, `src/lib/bible/params.ts`)
 - Équipes : création, invitations par code (expiration, révocation), défi commun, progression partagée avec confidentialité (`supabase/migrations/0003_teams.sql`, `src/lib/teams/`, `src/components/Team*.tsx`)
+- Navigation entre tous les jours (avance, rattrapage), quiz du jour aléatoire généré à partir du texte lu (obligatoire pour terminer un jour), blocs-notes privés par chapitre et par jour, synchronisés sans perte (`supabase/migrations/0004_quiz_notes_fix.sql`)
 - Lecteur biblique (`src/components/BibleReader.tsx`), téléchargement hors connexion (`DownloadPanel`), importeur USFM vérifié contre le canon (`scripts/import-bible.mjs`)
 - Coquille PWA (manifest, Service Worker, logo), navigation 5 entrées, aperçu de calendrier fonctionnel sur `/defis`
 
 ## Vérifié
-82 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
+98 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
 
 ## NON vérifié
 - `npm install`, `tsc`, `next build` : jamais exécutés

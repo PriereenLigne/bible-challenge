@@ -8,6 +8,7 @@ import { parseReaderParams } from "@/lib/bible/params";
 import { localToday, type ChallengeLite } from "@/lib/challenges/active";
 import { loadBook, loadVersions, type BibleVersion, type BookText } from "@/lib/bible/store";
 import { DownloadPanel } from "@/components/DownloadPanel";
+import { NoteBlock } from "@/components/NoteBlock";
 import { Notice } from "@/components/Notice";
 
 interface Pos { book: string; chapter: number }
@@ -121,6 +122,8 @@ export function BibleReader() {
         )}
         <p aria-hidden="true" className="mt-8 text-center text-sand">✦</p>
       </article>
+
+      <NoteBlock refKey={`chapter:${pos.book}:${pos.chapter}`} title={`Mes notes sur ${def?.name ?? ""} ${pos.chapter}`} />
 
       {challenge && cBook && (
         <div className="rounded-2xl border border-line bg-surface p-4">

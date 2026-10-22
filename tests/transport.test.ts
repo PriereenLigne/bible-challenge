@@ -38,6 +38,21 @@ describe("transport Supabase", () => {
     await expect(createSupabaseTransport(cfg((async () => json({}, 500)) as typeof fetch)).send([mk(OP1, 1)])).rejects.toThrow();
     await expect(createSupabaseTransport(cfg((async () => json({})) as typeof fetch, null)).send([mk(OP1, 1)])).rejects.toThrow();
   });
+  it("route quiz et notes vers leurs fonctions serveur", async () => {
+    const urls: string[] = [];
+    const t = createSupabaseTransport(cfg((async (url: string) => { urls.push(url); return json({ [OP1]: "applied", [OP2]: "applied", "cccccccc-cccc-4ccc-8ccc-cccccccccccc": "applied" }); }) as unknown as typeof fetch));
+    const quiz: QueuedOp = { opId: OP2, createdAt: 0, attempts: 0, nextAttemptAt: 0, payload: { type: "day_quiz", challengeId: U, dayIndex: 0, score: 3, total: 3, doneOn: "2027-01-01" } };
+    const note: QueuedOp = { opId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", createdAt: 0, attempts: 0, nextAttemptAt: 0, payload: { type: "note_upsert", refKey: "chapter:PSA:23", body: "Ma note", baseVersion: 0 } };
+    const r = await t.send([mk(OP1, 1), quiz, note]);
+    expect(Object.keys(r)).toHaveLength(3);
+    expect(urls.map((u) => u.split("/").pop())).toEqual(["apply_reading_events", "apply_day_completions", "apply_notes"]);
+  });
+  it("un groupe en échec n'empêche pas les autres ; ses opérations restent en file", async () => {
+    const t = createSupabaseTransport(cfg((async (url: string) => (url.endsWith("apply_notes") ? json({}, 500) : json({ [OP1]: "applied" }))) as unknown as typeof fetch));
+    const note: QueuedOp = { opId: OP2, createdAt: 0, attempts: 0, nextAttemptAt: 0, payload: { type: "note_upsert", refKey: "chapter:PSA:23", body: "x", baseVersion: 0 } };
+    const r = await t.send([mk(OP1, 1), note]);
+    expect(r).toEqual({ [OP1]: "applied" }); // la note est absente : elle sera retentée
+  });
   it("statut inconnu ou absent : l'opération reste en file", async () => {
     const t = createSupabaseTransport(cfg((async () => json({ [OP1]: "bizarre" })) as typeof fetch));
     expect(await t.send([mk(OP1, 1)])).toEqual({});

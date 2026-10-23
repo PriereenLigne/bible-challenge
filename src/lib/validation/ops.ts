@@ -1,5 +1,6 @@
 import { BOOK_BY_ID } from "@/lib/bible/canon";
 import type { OpPayload } from "@/lib/offline/types";
+import { MARK_COLORS } from "@/lib/marks/types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const isUuid = (s: unknown): s is string => typeof s === "string" && UUID.test(s);
@@ -37,6 +38,16 @@ export function validatePayload(p: OpPayload): Validation {
     if (!Number.isInteger(p.total) || p.total < 1 || p.total > 20) return { ok: false, error: "total invalide" };
     if (!Number.isInteger(p.score) || p.score < 0 || p.score > p.total) return { ok: false, error: "score invalide" };
     if (!isIsoDate(p.doneOn)) return { ok: false, error: "date invalide" };
+    return { ok: true };
+  }
+  if (p.type === "verse_mark") {
+    const book = BOOK_BY_ID.get(p.book);
+    if (!book) return { ok: false, error: `livre inconnu : ${p.book}` };
+    if (!Number.isInteger(p.chapter) || p.chapter < 1 || p.chapter > book.chapters) return { ok: false, error: "chapitre hors limites" };
+    if (!Number.isInteger(p.verse) || p.verse < 1 || p.verse > 200) return { ok: false, error: "verset hors limites" };
+    if (typeof p.favorite !== "boolean") return { ok: false, error: "favori invalide" };
+    if (p.color !== null && !(MARK_COLORS as readonly string[]).includes(p.color)) return { ok: false, error: "couleur inconnue" };
+    if (!Number.isSafeInteger(p.ts) || p.ts <= 0) return { ok: false, error: "horodatage invalide" };
     return { ok: true };
   }
   if (p.type === "note_upsert") {

@@ -1,6 +1,6 @@
 import { dayDiff } from "@/lib/challenges/active";
 
-export interface MemberProgress { user_id: string; display_name: string; role: string; shares: boolean; chapters_read: number | null; last_read_on: string | null }
+export interface MemberProgress { user_id: string; display_name: string; role: string; shares: boolean; chapters_read: number | null; days_done: number | null; last_read_on: string | null }
 export interface MemberStat { userId: string; name: string; role: string; shares: boolean; read: number | null; percent: number | null; activeThisWeek: boolean }
 export interface TeamStats {
   members: number; sharing: number;

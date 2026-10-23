@@ -1,5 +1,5 @@
 export interface LocalNote { refKey: string; body: string; baseVersion: number; dirty: boolean; updatedAt: number }
-export interface ServerNote { refKey: string; body: string; version: number }
+export interface ServerNote { refKey: string; body: string; version: number; updatedAt?: number }
 export const MERGE_SEPARATOR = "\n\n— Version enregistrée sur cet appareil —\n";
 
 /**
@@ -8,7 +8,7 @@ export const MERGE_SEPARATOR = "\n\n— Version enregistrée sur cet appareil �
  * - une opération encore en file n'est pas écrasée : elle sera résolue par le serveur.
  */
 export function reconcileNote(local: LocalNote | undefined, server: ServerNote, hasQueuedOp: boolean): { note: LocalNote; changed: boolean; enqueue: boolean } {
-  const adopt = (): LocalNote => ({ refKey: server.refKey, body: server.body, baseVersion: server.version, dirty: false, updatedAt: local?.updatedAt ?? 0 });
+  const adopt = (): LocalNote => ({ refKey: server.refKey, body: server.body, baseVersion: server.version, dirty: false, updatedAt: server.updatedAt ?? local?.updatedAt ?? 0 });
   if (!local) return { note: adopt(), changed: true, enqueue: false };
   if (hasQueuedOp) return { note: local, changed: false, enqueue: false };
   if (local.body === server.body) {

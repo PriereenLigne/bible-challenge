@@ -14,3 +14,8 @@ export function dayStatus(day: PlanDay, isRead: (book: string, chapter: number) 
   const n = chs.filter((c) => isRead(c.book, c.chapter)).length;
   return n === chs.length ? "quiz" : n > 0 ? "partial" : "todo";
 }
+
+/** Un défi est terminé quand chaque jour de lecture est « terminé » (lecture complète + quiz réussi). */
+export function isChallengeComplete(plan: { days: PlanDay[] }, isRead: (book: string, chapter: number) => boolean, doneDays: ReadonlySet<number>): boolean {
+  return plan.days.length > 0 && plan.days.every((d) => { const s = dayStatus(d, isRead, doneDays.has(d.dayIndex)); return s === "done" || s === "rest"; });
+}

@@ -40,6 +40,19 @@ export default function Page() {
     } finally { setBusy(false); }
   }
 
+  async function forgot() {
+    const sb = getSupabase(); if (!sb) return;
+    if (!email.trim()) { setMsg("Saisissez d’abord votre adresse e-mail ci-dessus."); return; }
+    if (!navigator.onLine) { setMsg("Une connexion Internet est nécessaire."); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/connexion/nouveau` });
+      // même message qu'un compte existe ou non : on ne révèle pas quelles adresses sont inscrites
+      setMsg(error ? `Envoi impossible : ${error.message}` : "Si un compte existe avec cette adresse, un e-mail de réinitialisation vient d’être envoyé.");
+    } catch (err) { setMsg(`Serveur injoignable : ${(err as Error).message}`); }
+    finally { setBusy(false); }
+  }
+
   if (!loading && !configured) {
     return <Notice title="Connexion indisponible"><p>Les clés Supabase ne sont pas configurées sur ce site (variables NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY).</p></Notice>;
   }
@@ -63,6 +76,7 @@ export default function Page() {
         </button>
         {msg && <p role="status" className="text-sm text-calm">{msg}</p>}
       </form>
+      {mode === "in" && <button type="button" disabled={busy} onClick={() => void forgot()} className="min-h-12 w-full text-sm text-calm underline">Mot de passe oublié ?</button>}
       <button type="button" onClick={() => { setMode(mode === "in" ? "up" : "in"); setMsg(null); }} className="min-h-12 w-full text-sm text-calm underline">
         {mode === "in" ? "Pas encore de compte ? Créer un compte" : "Déjà un compte ? Se connecter"}
       </button>

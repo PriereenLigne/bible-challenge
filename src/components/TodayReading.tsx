@@ -2,32 +2,40 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { Notice } from "@/components/Notice";
-import { DayQuiz } from "@/components/DayQuiz";
-import { NoteBlock } from "@/components/NoteBlock";
+import { ChallengeHero } from "@/components/ChallengeHero";
+import { ChallengeSwitcher } from "@/components/ChallengeSwitcher";
+import { DayPanel } from "@/components/DayPanel";
+import { Icon } from "@/components/Icon";
+import { RankingCard } from "@/components/RankingCard";
+import { ReminderBanner } from "@/components/ReminderBanner";
+import { useUserStats } from "@/components/useUserStats";
 import { getSupabase } from "@/lib/supabase/client";
-import { BOOK_BY_ID } from "@/lib/bible/canon";
 import { dayKey, daysStore, kv, readKey, readsStore, type DayDone, type LocalRead } from "@/lib/offline/local-db";
 import { idbOpStore } from "@/lib/offline/idb-store";
 import { markChapterRead, runSync as runSyncPass } from "@/lib/offline/mark-read";
-import { readerHref } from "@/lib/bible/params";
 import { dayDiff, localToday, pickChallenge, planOf, type ChallengeLite } from "@/lib/challenges/active";
-import { chaptersOfDay, dayStatus, type DayStatus } from "@/lib/challenges/day-status";
+import { dayStatus, type DayStatus } from "@/lib/challenges/day-status";
 import { computeProgress } from "@/lib/progress/compute";
+import { loadAllProgress } from "@/lib/progress/load-all";
+import { getTeamProgress, listMyTeams } from "@/lib/teams/api";
+import { rankMembers, ordinalFr } from "@/lib/ranking/rank";
+import { summarize } from "@/lib/stats/dashboard";
+import { DEFAULT_REMINDER, shouldNudge, type ReminderSettings } from "@/lib/reminders/settings";
+import type { MemberProgress } from "@/lib/teams/stats";
 
-const PAGE = 1000; // limite par défaut de Supabase : on pagine
-const nav = "min-h-12 min-w-12 rounded-xl border border-line px-4 text-lg disabled:opacity-40";
-const longDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-const CELL: Record<DayStatus, string> = {
-  done: "bg-progress text-bg", quiz: "border-2 border-progress", partial: "bg-sand/60", todo: "border border-line", rest: "border border-dashed border-line opacity-50",
-};
-const CELL_LABEL: Record<DayStatus, string> = { done: "terminé", quiz: "quiz à passer", partial: "lecture commencée", todo: "à faire", rest: "repos" };
+const PAGE = 1000;
+const SELECT = "id,title,scope,book_ids,start_date,end_date,status,team_id";
+interface RankingData { rows: MemberProgress[]; teamName: string; showRanking: boolean; at: number }
+
+const ago = (ms: number) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "à l’instant" : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
 
 export function TodayReading() {
   const { configured, loading, session } = useAuth();
   const uid = session?.user.id;
+  const firstName = String(session?.user.user_metadata?.display_name ?? session?.user.email?.split("@")[0] ?? "").split(" ")[0] || "ami";
   const today = useMemo(() => localToday(), []);
-  const [challenge, setChallenge] = useState<ChallengeLite | null>(null);
+  const [challenges, setChallenges] = useState<ChallengeLite[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [reads, setReads] = useState<Map<string, LocalRead>>(new Map());
   const [done, setDone] = useState<Map<number, DayDone>>(new Map());
@@ -35,6 +43,12 @@ export function TodayReading() {
   const [pending, setPending] = useState(0);
   const [online, setOnline] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ranking, setRanking] = useState<RankingData | null>(null);
+  const [reminder, setReminder] = useState<ReminderSettings>(DEFAULT_REMINDER);
+  const [dismissed, setDismissed] = useState(false);
+  const stats = useUserStats();
+
+  const challenge = useMemo(() => challenges.find((c) => c.id === selectedId) ?? null, [challenges, selectedId]);
 
   const runSync = useCallback(async () => {
     try { setPending(await runSyncPass()); }
@@ -46,42 +60,50 @@ export function TodayReading() {
     const on = () => { setOnline(true); void runSync(); };
     const off = () => setOnline(false);
     window.addEventListener("online", on); window.addEventListener("offline", off);
+    kv.get<ReminderSettings>("reminder").then((r) => { if (r) setReminder(r); }).catch((e) => console.error("Rappel :", e));
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, [runSync]);
 
-  // défi : cache local d'abord (fonctionne hors connexion), puis serveur
+  // liste des défis : cache local d'abord (hors connexion), puis serveur ; on ouvre directement le dernier défi consulté
   useEffect(() => {
     if (!uid) { setReady(true); return; }
     let active = true;
     (async () => {
       const cacheKey = `challenges:${uid}`;
+      const choose = async (list: ChallengeLite[]) => {
+        const remembered = await kv.get<string>(`selected:${uid}`);
+        const id = list.find((c) => c.id === remembered)?.id ?? pickChallenge(list, today)?.id ?? list[0]?.id ?? null;
+        for (const c of list) await kv.set(`challenge:${c.id}`, c);
+        if (active) { setChallenges(list); setSelectedId((cur) => (cur && list.some((c) => c.id === cur) ? cur : id)); }
+      };
       try {
         const cached = await kv.get<ChallengeLite[]>(cacheKey);
-        const fromCache = cached ? pickChallenge(cached, today) : null;
-        if (fromCache) await kv.set(`challenge:${fromCache.id}`, fromCache);
-        if (fromCache && active) setChallenge(fromCache);
+        if (cached) await choose(cached);
         const sb = getSupabase();
         if (navigator.onLine && sb) {
-          const { data, error: err } = await sb.from("challenges").select("id,title,scope,book_ids,start_date,end_date,status").in("status", ["active", "planned"]);
+          const { data, error: err } = await sb.from("challenges").select(SELECT).in("status", ["active", "planned"]).order("start_date", { ascending: false });
           if (err) throw new Error(err.message);
           const list = (data ?? []) as ChallengeLite[];
           await kv.set(cacheKey, list);
-          const picked = pickChallenge(list, today);
-          if (picked) await kv.set(`challenge:${picked.id}`, picked);
-          if (active) setChallenge(picked);
+          await choose(list);
+          void loadAllProgress(list.map((c) => c.id)).then(() => stats.reload()).catch((e) => console.error("Progression globale :", e));
         }
         setPending((await idbOpStore.getAll()).length);
-      } catch (e) { if (active) setError(`Chargement du défi : ${(e as Error).message}`); }
+      } catch (e) { if (active) setError(`Chargement des défis : ${(e as Error).message}`); }
       finally { if (active) setReady(true); }
     })();
     return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid, today]);
 
-  // lectures et jours terminés : locaux d'abord, puis fusion avec le serveur (autres appareils)
+  const select = (id: string) => { setSelectedId(id); setSelDay(null); setRanking(null); if (uid) void kv.set(`selected:${uid}`, id).catch((e) => console.error("Choix du défi non mémorisé :", e)); };
+
+  // lectures et jours terminés du défi choisi
   const cid = challenge?.id;
   useEffect(() => {
     if (!cid) return;
     let active = true;
+    setReads(new Map()); setDone(new Map());
     (async () => {
       try {
         const local = await readsStore.forChallenge(cid);
@@ -114,6 +136,29 @@ export function TodayReading() {
     return () => { active = false; };
   }, [cid, runSync]);
 
+  // classement de l'équipe (défi d'équipe) : serveur si possible, sinon dernier état connu
+  const teamId = challenge?.team_id ?? null;
+  useEffect(() => {
+    if (!teamId) { setRanking(null); return; }
+    let active = true;
+    (async () => {
+      const key = `ranking:${teamId}`;
+      try {
+        const cached = await kv.get<RankingData>(key);
+        if (cached && active) setRanking(cached);
+        const sb = getSupabase();
+        if (navigator.onLine && sb) {
+          const [teams, rows] = await Promise.all([listMyTeams(sb), getTeamProgress(sb, teamId)]);
+          const t = teams.find((x) => x.id === teamId);
+          const fresh: RankingData = { rows, teamName: t?.name ?? "Équipe", showRanking: t?.show_ranking ?? true, at: Date.now() };
+          await kv.set(key, fresh);
+          if (active) setRanking(fresh);
+        }
+      } catch (e) { console.error("Classement :", e); }
+    })();
+    return () => { active = false; };
+  }, [teamId, reads.size, done.size]);
+
   async function markRead(book: string, chapter: number) {
     if (!challenge) return;
     const key = readKey(challenge.id, book, chapter);
@@ -122,30 +167,39 @@ export function TodayReading() {
       const rec = await markChapterRead(challenge.id, book, chapter, today);
       setReads((m) => new Map(m).set(key, rec));
       setError(null);
-      void runSync();
+      void runSync().then(() => stats.reload());
     } catch (e) { setError(`Impossible d'enregistrer la lecture : ${(e as Error).message}`); }
   }
 
   const plan = useMemo(() => (challenge ? planOf(challenge) : null), [challenge]);
   const progress = useMemo(() => (plan ? computeProgress(plan, [...reads.values()].map((r) => ({ book: r.book, chapter: r.chapter })), today) : null), [plan, reads, today]);
   const statuses = useMemo<DayStatus[]>(() => (plan && cid ? plan.days.map((d) => dayStatus(d, (b, c) => reads.has(readKey(cid, b, c)), done.has(d.dayIndex))) : []), [plan, cid, reads, done]);
+  const summary = useMemo(() => (stats.data ? summarize(stats.data.reads, stats.data.days, today) : null), [stats.data, today]);
 
-  if (loading || (session && !ready)) return <p className="text-sm text-muted">Chargement…</p>;
-  if (!configured) return <Notice title="Serveur non configuré"><p>Les clés Supabase manquent sur ce site.</p></Notice>;
+  if (loading || (session && !ready)) return <div className="space-y-4" aria-busy="true"><div className="h-60 animate-pulse rounded-[1.9rem] bg-line/60" /><div className="h-40 animate-pulse rounded-3xl bg-line/60" /></div>;
+  if (!configured) return <section className="card"><h2 className="font-reading text-xl font-semibold">Serveur non configuré</h2><p className="mt-2 text-sm text-muted">Les clés Supabase manquent sur ce site.</p></section>;
+
   if (!session) {
     return (
-      <Notice title="Bienvenue">
-        <p>Créez un compte pour enregistrer vos défis et votre progression, même lorsque vous lisez sans connexion.</p>
-        <Link href="/connexion" className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-forest px-5 font-medium text-bg">Se connecter</Link>
-      </Notice>
+      <section className="hero animate-fade-up">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] muted">Bible Challenge</p>
+        <h1 className="mt-2 font-reading text-3xl font-semibold leading-tight">Lire la Bible chaque jour, ensemble.</h1>
+        <p className="mt-3 muted">Des défis de lecture, un quiz pour ancrer ce que vous lisez, des équipes pour avancer à plusieurs. Même sans connexion.</p>
+        <Link href="/connexion" className="btn-sand mt-5 w-full">Commencer<Icon name="chevron-right" size={18} /></Link>
+      </section>
     );
   }
-  if (!challenge || !plan || !cid) {
+  if (!challenge || !plan || !cid || !progress) {
     return (
-      <Notice title="Aucun défi en cours">
-        <p>Choisissez un programme et une durée : le calendrier de lecture est généré pour vous, jour après jour.</p>
-        <Link href="/defis" className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-forest px-5 font-medium text-bg">Choisir un programme</Link>
-      </Notice>
+      <div className="stagger space-y-4">
+        {challenges.length > 0 && <ChallengeSwitcher challenges={challenges} selectedId={selectedId} onSelect={select} />}
+        <section className="hero">
+          <h1 className="font-reading text-[1.65rem] font-semibold leading-tight">Bonjour {firstName}</h1>
+          <p className="mt-2 muted">Choisissez un programme et une durée : le calendrier de lecture se génère pour vous, jour après jour.</p>
+          <Link href="/defis" className="btn-sand mt-5 w-full">Choisir un programme<Icon name="chevron-right" size={18} /></Link>
+        </section>
+        <Link href="/communaute" className="card flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sand/50 text-forest"><Icon name="users" size={22} /></span><span><span className="block font-medium">Rejoindre une équipe</span><span className="text-sm text-muted">Avec un code d’invitation reçu d’un ami</span></span></Link>
+      </div>
     );
   }
 
@@ -153,83 +207,34 @@ export function TodayReading() {
   const rawIdx = dayDiff(challenge.start_date, today);
   const todayIdx = Math.min(Math.max(rawIdx, 0), total - 1);
   const dayIdx = Math.min(Math.max(selDay ?? todayIdx, 0), total - 1);
-  const day = plan.days[dayIdx]!;
-  const chapters = chaptersOfDay(day);
-  const allRead = chapters.length > 0 && chapters.every((c) => reads.has(readKey(cid, c.book, c.chapter)));
-  const dayDone = done.get(dayIdx);
-  const daysDone = [...done.keys()].length;
-  const syncLabel = !online ? "Hors connexion" : pending > 0 ? `${pending} modification(s) en attente d’envoi` : "Tout est synchronisé";
+  const todayStatus = statuses[todayIdx] ?? "todo";
+  const todayDone = todayStatus === "done" || todayStatus === "rest";
+  const myRank = ranking?.showRanking ? rankMembers(ranking.rows, uid ?? "").me : null;
+  const rankedCount = ranking?.showRanking ? rankMembers(ranking.rows, uid ?? "").ranked.length : 0;
+  const d = new Date();
+  const nudge = !dismissed && rawIdx >= 0 && rawIdx < total && shouldNudge(reminder, d.getDay(), d.getHours() * 60 + d.getMinutes(), todayDone);
+  const cta = todayDone ? { label: "Journée terminée, bravo ✓", href: "#lecture" }
+    : todayStatus === "quiz" ? { label: "Passer le quiz du jour", href: "#lecture" }
+    : todayStatus === "partial" ? { label: "Continuer ma lecture", href: "#lecture" } : { label: "Commencer ma lecture", href: "#lecture" };
+  const syncLabel = !online ? "Hors connexion : tout est enregistré sur l’appareil" : pending > 0 ? `${pending} modification(s) en attente d’envoi` : "Tout est synchronisé";
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-2xl border border-line bg-surface p-5">
-        <p className="text-sm text-muted">{challenge.title}</p>
-        {rawIdx < 0 && <p className="mt-1 text-sm text-calm">Le défi commence dans {-rawIdx} jour(s). Vous pouvez déjà prendre de l’avance.</p>}
-        {rawIdx >= total && <p className="mt-1 text-sm text-calm">Le calendrier prévu est terminé. Vous pouvez poursuivre à votre rythme.</p>}
-
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <button type="button" className={nav} aria-label="Jour précédent" disabled={dayIdx <= 0} onClick={() => setSelDay(dayIdx - 1)}>‹</button>
-          <div className="text-center">
-            <p className="font-reading text-xl">Jour {dayIdx + 1} sur {total}</p>
-            <p className="text-xs capitalize text-muted">{longDate(day.date)}{dayIdx === todayIdx && rawIdx >= 0 && rawIdx < total ? " · aujourd’hui" : ""}</p>
-          </div>
-          <button type="button" className={nav} aria-label="Jour suivant" disabled={dayIdx >= total - 1} onClick={() => setSelDay(dayIdx + 1)}>›</button>
-        </div>
-        {dayIdx !== todayIdx && <button type="button" onClick={() => setSelDay(null)} className="mt-2 min-h-11 w-full text-sm text-calm underline">Revenir à aujourd’hui</button>}
-
-        {day.rest ? <p className="mt-4 text-sm text-muted">Jour de repos : aucune lecture prévue.</p> : (
-          <ul className="mt-3 divide-y divide-line">
-            {chapters.map(({ book, chapter }) => {
-              const isDone = reads.has(readKey(cid, book, chapter));
-              return (
-                <li key={`${book}:${chapter}`} className="flex items-center justify-between gap-3 py-2">
-                  <Link href={readerHref(book, chapter, cid)} className="min-h-11 flex-1 py-2 underline decoration-line underline-offset-4">{BOOK_BY_ID.get(book)?.name ?? book} {chapter}</Link>
-                  <button type="button" disabled={isDone} onClick={() => void markRead(book, chapter)}
-                    className={`min-h-11 rounded-xl px-4 text-sm font-medium ${isDone ? "bg-progress/15 text-progress" : "bg-forest text-bg"}`}>
-                    {isDone ? "Lu ✓" : "Marquer comme lu"}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {progress && (
-          <div className="mt-4">
-            <div role="progressbar" aria-valuenow={progress.contentReadPercent} aria-valuemin={0} aria-valuemax={100} aria-label="Contenu lu" className="h-2 overflow-hidden rounded-full bg-line">
-              <div className="h-full bg-progress" style={{ width: `${Math.min(100, progress.contentReadPercent)}%` }} />
-            </div>
-            <p className="mt-2 text-sm text-muted">{progress.uniqueRead} chapitre(s) lu(s) · {progress.contentReadPercent} % du programme · {daysDone} jour(s) terminé(s) sur {total}</p>
-            {progress.chaptersBehind > 0 && <p className="mt-1 text-sm text-muted">Il reste {progress.chaptersBehind} chapitre(s) à rattraper, à votre rythme.</p>}
-          </div>
-        )}
-      </section>
-
-      {!day.rest && (dayDone ? (
-        <p className="rounded-2xl bg-progress/15 p-4 text-progress">Jour {dayIdx + 1} terminé ✓ — quiz {dayDone.score}/{dayDone.total}</p>
-      ) : allRead ? (
-        <DayQuiz key={`${cid}:${dayIdx}`} challengeId={cid} dayIndex={dayIdx} chapters={chapters} onCompleted={(d) => setDone((m) => new Map(m).set(d.dayIndex, d))} />
-      ) : (
-        <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-muted">Le quiz du jour s’ouvre dès que tous les chapitres de ce jour sont marqués comme lus.</p>
-      ))}
-
-      {!day.rest && <NoteBlock refKey={`day:${cid}:${dayIdx}`} title="Ma méditation du jour" placeholder="Qu’est-ce que Dieu vous a dit à travers ces passages ? Une phrase, une prière, une décision…" />}
-
-      <details className="rounded-2xl border border-line bg-surface p-4">
-        <summary className="min-h-11 cursor-pointer py-2 font-medium">Tous les jours</summary>
-        <div className="mt-3 grid grid-cols-7 gap-1.5">
-          {plan.days.map((d, i) => (
-            <button key={d.dayIndex} type="button" onClick={() => setSelDay(i)} aria-label={`Jour ${i + 1}, ${CELL_LABEL[statuses[i] ?? "todo"]}`} aria-current={i === dayIdx ? "true" : undefined}
-              className={`min-h-10 rounded-lg text-xs ${CELL[statuses[i] ?? "todo"]} ${i === dayIdx ? "ring-2 ring-calm" : ""} ${i === todayIdx && rawIdx >= 0 && rawIdx < total ? "font-bold underline" : ""}`}>
-              {i + 1}
-            </button>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-muted">Plein : terminé · cadre plein : quiz à passer · sable : commencé · cadre fin : à faire · pointillé : repos.</p>
-      </details>
-
-      <p role="status" className="text-sm text-muted">{syncLabel}</p>
-      {error && <p role="alert" className="text-sm text-calm">{error}</p>}
+    <div className="stagger space-y-4">
+      <ChallengeSwitcher challenges={challenges} selectedId={selectedId} onSelect={select} />
+      <ChallengeHero firstName={firstName} title={challenge.title} dayNumber={todayIdx + 1} totalDays={total} percent={progress.contentReadPercent}
+        daysDone={done.size} streak={summary?.streak ?? 0} cta={cta}
+        rankText={myRank ? `${ordinalFr(myRank.rank)} sur ${rankedCount}` : null} />
+      {nudge && <ReminderBanner onDismiss={() => setDismissed(true)} />}
+      <DayPanel cid={cid} plan={plan} reads={reads} done={done} dayIdx={dayIdx} todayIdx={todayIdx} rawIdx={rawIdx} statuses={statuses}
+        onSelect={setSelDay} onMark={(b, c) => void markRead(b, c)} onDayDone={(dd) => { setDone((m) => new Map(m).set(dd.dayIndex, dd)); void stats.reload(); }} />
+      {ranking && uid && <RankingCard rows={ranking.rows} myId={uid} teamName={ranking.teamName} showRanking={ranking.showRanking} totalDays={total} stale={online ? null : ago(ranking.at)} />}
+      <Link href="/profil" className="card flex items-center gap-3 transition active:scale-[.99]">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-forest/10 text-forest"><Icon name="chart" size={22} /></span>
+        <span className="flex-1"><span className="block font-medium">Mon tableau de bord</span><span className="text-sm text-muted">Série, badges, bilan de la semaine</span></span>
+        <Icon name="chevron-right" size={18} className="text-muted" />
+      </Link>
+      <p role="status" className="px-1 text-center text-xs text-muted">{syncLabel}</p>
+      {error && <p role="alert" className="text-center text-sm text-calm">{error}</p>}
     </div>
   );
 }

@@ -69,3 +69,44 @@ describe("notes : réconciliation sans perte", () => {
   });
   it("le serveur contient déjà notre texte : pas de doublon", () => { expect(reconcileNote(L({ body: "abc" }), S("xx abc yy", 4), false).enqueue).toBe(false); });
 });
+
+import { describeRef, searchNotes, exportNotesText, normalize } from "@/lib/notes/journal";
+describe("journal", () => {
+  const U = "123e4567-e89b-42d3-a456-426614174000";
+  const notes = [
+    { refKey: "chapter:JHN:3", body: "Dieu a tant aimé le monde", updatedAt: 200 },
+    { refKey: `day:${U}:4`, body: "Prière pour ma famille", updatedAt: 300 },
+    { refKey: "chapter:PSA:23", body: "   ", updatedAt: 999 },
+  ];
+  const label = (n: { refKey: string }) => describeRef(n.refKey, "Évangiles · 1 mois").label;
+  it("décrit les références", () => {
+    expect(describeRef("chapter:JHN:3")).toEqual({ label: "Jean 3", href: "/lire?b=JHN&c=3" });
+    expect(describeRef(`day:${U}:4`, "Mon défi").label).toBe("Jour 5 · Mon défi");
+  });
+  it("ignore les notes vides, trie par date décroissante", () => { expect(searchNotes(notes, "", label).map((n) => n.updatedAt)).toEqual([300, 200]); });
+  it("recherche sans tenir compte des accents ni de la casse", () => {
+    expect(searchNotes(notes, "PRIERE", label)).toHaveLength(1);
+    expect(searchNotes(notes, "evangiles", label)).toHaveLength(1); // trouve par le titre du défi
+    expect(searchNotes(notes, "jean", label)).toHaveLength(1);
+    expect(searchNotes(notes, "introuvable", label)).toHaveLength(0);
+  });
+  it("normalise", () => { expect(normalize("Éléphant")).toBe("elephant"); });
+  it("exporte en texte", () => {
+    const t = exportNotesText(searchNotes(notes, "", label), label, new Date(2027, 0, 5));
+    expect(t).toContain("2 note(s)"); expect(t).toContain("=== Jean 3 ==="); expect(t).toContain("Prière pour ma famille");
+  });
+});
+
+import { isChallengeComplete } from "@/lib/challenges/day-status";
+describe("défi terminé", () => {
+  const plan = { days: [
+    { dayIndex: 0, date: "2027-01-01", passages: [{ book: "OBA", from: 1, to: 1 }], chapterCount: 1, rest: false },
+    { dayIndex: 1, date: "2027-01-02", passages: [], chapterCount: 0, rest: true },
+  ] };
+  it("terminé seulement si tous les jours de lecture sont validés par le quiz", () => {
+    expect(isChallengeComplete(plan, () => true, new Set([0]))).toBe(true);
+    expect(isChallengeComplete(plan, () => true, new Set())).toBe(false);
+    expect(isChallengeComplete(plan, () => false, new Set())).toBe(false);
+    expect(isChallengeComplete({ days: [] }, () => true, new Set())).toBe(false);
+  });
+});

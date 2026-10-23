@@ -5,11 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { Notice } from "@/components/Notice";
 import { getSupabase } from "@/lib/supabase/client";
-import { createInvite, getTeamProgress, leaveTeam, listInvites, listMyTeams, revokeInvite, setSharing, type InviteRow, type TeamRow } from "@/lib/teams/api";
+import { createInvite, getTeamProgress, leaveTeam, listInvites, listMyTeams, revokeInvite, setSharing, setTeamRanking, type InviteRow, type TeamRow } from "@/lib/teams/api";
 import { computeTeamStats, type MemberProgress } from "@/lib/teams/stats";
 import { countChapters, formatInviteCode } from "@/lib/teams/build";
 import { isUuid } from "@/lib/validation/ops";
-import { localToday } from "@/lib/challenges/active";
+import { dayDiff, localToday } from "@/lib/challenges/active";
+import { RankingCard } from "@/components/RankingCard";
 
 const btn = "min-h-12 rounded-xl border border-line px-5 font-medium disabled:opacity-60";
 
@@ -68,6 +69,7 @@ export function TeamDetail() {
   if (!teamId) return <Notice title="Équipe introuvable"><p>Ce lien n’est pas valide.</p><Link href="/communaute" className="mt-3 inline-block underline">Retour à la communauté</Link></Notice>;
   if (!team) return <div className="space-y-3">{error ? <p role="alert" className="text-sm text-calm">{error}</p> : <p className="text-sm text-muted">Chargement…</p>}<Link href="/communaute" className="inline-block underline">← Mes équipes</Link></div>;
 
+  const totalDays = team.start_date && team.end_date ? dayDiff(team.start_date, team.end_date) + 1 : 0;
   const activeInvites = invites.filter((i) => !i.revoked_at && new Date(i.expires_at) > new Date());
   return (
     <div className="space-y-6">
@@ -77,6 +79,8 @@ export function TeamDetail() {
         {team.description && <p className="mt-1 text-muted">{team.description}</p>}
         {team.start_date && <p className="mt-1 text-sm text-muted">Défi commun : {perMember} chapitres, du {team.start_date} au {team.end_date}. Retrouvez-le sur votre accueil.</p>}
       </header>
+
+      {uid && <RankingCard rows={rows} myId={uid} teamName={team.name} showRanking={team.show_ranking} totalDays={totalDays} />}
 
       <section className="rounded-2xl border border-line bg-surface p-5">
         <h2 className="text-lg font-semibold">Ensemble</h2>
@@ -130,6 +134,12 @@ export function TeamDetail() {
           <input type="checkbox" className="h-5 w-5" checked={me?.shares ?? true} onChange={(e) => void act(() => setSharing(sb(), team.id, e.target.checked))} />
           Partager ma progression avec cette équipe
         </label>
+        {isLeader && (
+          <label className="flex min-h-12 items-center gap-3 text-sm">
+            <input type="checkbox" className="h-5 w-5" checked={team.show_ranking} onChange={(e) => void act(() => setTeamRanking(sb(), team.id, e.target.checked))} />
+            Afficher le classement dans l’équipe
+          </label>
+        )}
         {me?.role !== "creator" && <button type="button" className={btn} onClick={() => { if (confirm("Quitter cette équipe ? Votre historique de lecture est conservé.")) void act(async () => { await leaveTeam(sb(), team.id); router.push("/communaute"); }); }}>Quitter l’équipe</button>}
       </section>
       {info && <p role="status" className="text-sm text-progress">{info}</p>}

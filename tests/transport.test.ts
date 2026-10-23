@@ -47,6 +47,14 @@ describe("transport Supabase", () => {
     expect(Object.keys(r)).toHaveLength(3);
     expect(urls.map((u) => u.split("/").pop())).toEqual(["apply_reading_events", "apply_day_completions", "apply_notes"]);
   });
+  it("route les marques de versets vers apply_verse_marks", async () => {
+    let seen = "";
+    const t = createSupabaseTransport(cfg((async (url: string, init: RequestInit) => { seen = url + "|" + (init.body as string); return json({ [OP1]: "applied" }); }) as unknown as typeof fetch));
+    const mark: QueuedOp = { opId: OP1, createdAt: 0, attempts: 0, nextAttemptAt: 0, payload: { type: "verse_mark", book: "JHN", chapter: 3, verse: 16, favorite: true, color: "bleu", ts: 1700000000000 } };
+    expect(await t.send([mark])).toEqual({ [OP1]: "applied" });
+    expect(seen.split("|")[0]?.endsWith("apply_verse_marks")).toBe(true);
+    expect(JSON.parse(seen.split("|")[1] as string).ops[0]).toMatchObject({ book: "JHN", verse: 16, color: "bleu", ts: 1700000000000 });
+  });
   it("un groupe en échec n'empêche pas les autres ; ses opérations restent en file", async () => {
     const t = createSupabaseTransport(cfg((async (url: string) => (url.endsWith("apply_notes") ? json({}, 500) : json({ [OP1]: "applied" }))) as unknown as typeof fetch));
     const note: QueuedOp = { opId: OP2, createdAt: 0, attempts: 0, nextAttemptAt: 0, payload: { type: "note_upsert", refKey: "chapter:PSA:23", body: "x", baseVersion: 0 } };

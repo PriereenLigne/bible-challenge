@@ -3,7 +3,7 @@ import { buildTeamParams, normalizeInviteCode, formatInviteCode, countChapters }
 import { computeTeamStats, type MemberProgress } from "@/lib/teams/stats";
 
 const base = { name: "  Jeunes de l'église ", description: "", withChallenge: false, scope: "gospels" as const, durationId: "1m", start: "2027-01-01" };
-const row = (id: string, shares: boolean, read: number | null, last: string | null): MemberProgress => ({ user_id: id, display_name: id, role: "member", shares, chapters_read: read, last_read_on: last });
+const row = (id: string, shares: boolean, read: number | null, last: string | null): MemberProgress => ({ user_id: id, display_name: id, role: "member", shares, chapters_read: read, days_done: null, last_read_on: last });
 
 describe("création d'équipe", () => {
   it("équipe sans défi commun", () => { expect(buildTeamParams(base)).toEqual({ p_name: "Jeunes de l'église", p_description: null, p_scope: null, p_book_ids: null, p_start: null, p_end: null }); });

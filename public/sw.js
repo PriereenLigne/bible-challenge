@@ -3,7 +3,7 @@
 const VERSION = "bc-shell-v1";
 const BIBLE_CACHE = "bc-bible-v1"; // jamais supprimé par l'activation : textes téléchargés par l'utilisateur
 const BOOK_FILE = /^\/bibles\/[^/]+\/[A-Z0-9]{3}\.json$/;
-const SHELL = ["/", "/lire", "/defis", "/communaute", "/profil", "/logo.svg", "/manifest.webmanifest"];
+const SHELL = ["/", "/lire", "/defis", "/communaute", "/profil", "/profil/journal", "/profil/favoris", "/profil/rappels", "/connexion", "/logo.svg", "/icon-192.png", "/manifest.webmanifest"];
 self.addEventListener("install", (e) => e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (e) => e.waitUntil(
   caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith("bc-shell-") && k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim())));

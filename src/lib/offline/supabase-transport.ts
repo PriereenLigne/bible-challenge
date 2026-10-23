@@ -9,7 +9,7 @@ const VALID: ReadonlySet<string> = new Set(["applied", "duplicate", "rejected", 
 interface Group { rpc: string; ops: QueuedOp[]; items: Record<string, unknown>[] }
 
 /**
- * Transport vers Supabase (API REST, sans SDK). Trois fonctions serveur : lectures, jours terminés, notes.
+ * Transport vers Supabase (API REST, sans SDK). Quatre fonctions serveur : lectures, jours terminés, notes, marques de versets.
  * - health : appelle réellement le service d'authentification.
  * - Opération invalide : « rejected » sans envoi. Groupe en échec : ses opérations restent en file.
  * - opId doit être un UUID (crypto.randomUUID()).
@@ -30,14 +30,16 @@ export function createSupabaseTransport(cfg: SupabaseTransportConfig): Transport
       const readings: Group = { rpc: "apply_reading_events", ops: [], items: [] };
       const quizzes: Group = { rpc: "apply_day_completions", ops: [], items: [] };
       const notes: Group = { rpc: "apply_notes", ops: [], items: [] };
+      const marks: Group = { rpc: "apply_verse_marks", ops: [], items: [] };
       for (const o of ops) {
         if (!validatePayload(o.payload).ok) { out[o.opId] = "rejected"; continue; }
         const p = o.payload;
         if (p.type === "reading_event") { readings.ops.push(o); readings.items.push({ op_id: o.opId, challenge_id: p.challengeId, book: p.book, chapter: p.chapter, read_on: p.readOn }); }
         else if (p.type === "day_quiz") { quizzes.ops.push(o); quizzes.items.push({ op_id: o.opId, challenge_id: p.challengeId, day_index: p.dayIndex, score: p.score, total: p.total, done_on: p.doneOn }); }
+        else if (p.type === "verse_mark") { marks.ops.push(o); marks.items.push({ op_id: o.opId, book: p.book, chapter: p.chapter, verse: p.verse, favorite: p.favorite, color: p.color, ts: p.ts }); }
         else { notes.ops.push(o); notes.items.push({ op_id: o.opId, ref_key: p.refKey, body: p.body, base_version: p.baseVersion }); }
       }
-      const groups = [readings, quizzes, notes].filter((g) => g.ops.length > 0);
+      const groups = [readings, quizzes, notes, marks].filter((g) => g.ops.length > 0);
       if (groups.length === 0) return out;
 
       const token = await cfg.getAccessToken();

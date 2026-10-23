@@ -1,6 +1,7 @@
 import { getSupabase, supabaseConfig } from "@/lib/supabase/client";
 import { dayKey, daysStore, kv, readKey, readsStore, type DayDone, type LocalRead } from "./local-db";
 import { pullNotes } from "@/lib/notes/client";
+import { pullMarks } from "@/lib/marks/client";
 import { idbOpStore } from "./idb-store";
 import { enqueue, syncOnce } from "./sync";
 import { createSupabaseTransport } from "./supabase-transport";
@@ -29,6 +30,8 @@ export async function runSync(): Promise<number> {
     await syncOnce(idbOpStore, transport, Date.now());
     try { if (await pullNotes()) await syncOnce(idbOpStore, transport, Date.now()); } // fusion des notes puis renvoi
     catch (e) { console.error("Notes :", e); }
+    try { if (await pullMarks()) await syncOnce(idbOpStore, transport, Date.now()); } // favoris et surlignage
+    catch (e) { console.error("Marques :", e); }
   }
   return (await idbOpStore.getAll()).length;
 }

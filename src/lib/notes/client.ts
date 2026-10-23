@@ -28,11 +28,11 @@ export async function pullNotes(): Promise<boolean> {
   const queued = new Set((await idbOpStore.getAll()).flatMap((o) => (o.payload.type === "note_upsert" ? [o.payload.refKey] : [])));
   let needsSend = false;
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from("notes").select("ref_key,body,version").order("ref_key").range(from, from + 999);
+    const { data, error } = await sb.from("notes").select("ref_key,body,version,updated_at").order("ref_key").range(from, from + 999);
     if (error) throw new Error(error.message);
-    const rows = (data ?? []) as { ref_key: string; body: string; version: number }[];
+    const rows = (data ?? []) as { ref_key: string; body: string; version: number; updated_at: string }[];
     for (const r of rows) {
-      const res = reconcileNote(await notesStore.get(r.ref_key), { refKey: r.ref_key, body: r.body, version: r.version }, queued.has(r.ref_key));
+      const res = reconcileNote(await notesStore.get(r.ref_key), { refKey: r.ref_key, body: r.body, version: r.version, updatedAt: Date.parse(r.updated_at) || undefined }, queued.has(r.ref_key));
       if (res.changed) await notesStore.put(res.note);
       if (res.enqueue) { await queueNote(res.note); needsSend = true; }
     }

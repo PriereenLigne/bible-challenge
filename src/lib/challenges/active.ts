@@ -1,6 +1,6 @@
 import { generatePlan, type GeneratedPlan, type PlanDay } from "@/lib/plans/generate";
 
-export interface ChallengeLite { id: string; title: string; scope: string; book_ids: string[]; start_date: string; end_date: string; status: string }
+export interface ChallengeLite { id: string; title: string; scope: string; book_ids: string[]; start_date: string; end_date: string; status: string; team_id?: string | null }
 export type TodayState =
   | { kind: "not_started"; startsIn: number }
   | { kind: "running"; dayIndex: number; totalDays: number; day: PlanDay }

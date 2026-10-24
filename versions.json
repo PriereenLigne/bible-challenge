@@ -1,0 +1,24 @@
+[
+  {
+    "id": "lsg",
+    "name": "Louis Segond 1910",
+    "language": "fr",
+    "publisher": "eBible.org",
+    "license": "Domaine public",
+    "allowReproduction": true,
+    "allowOffline": true,
+    "allowAudio": true,
+    "attribution": "Louis Segond 1910, domaine public. Source : eBible.org (fraLSG).",
+    "isTestData": false,
+    "revision": 1,
+    "sizeBytes": 4540986,
+    "audio": {
+      "item": "LSG_201807",
+      "provider": "Trésor Sonore (tresorsonore.com)",
+      "license": "CC BY-NC-ND 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-nc-nd/4.0/deed.fr",
+      "sourceUrl": "https://archive.org/details/LSG_201807",
+      "attribution": "Enregistrement : Trésor Sonore, Creative Commons Attribution - Pas d'utilisation commerciale - Pas de modification 4.0."
+    }
+  }
+]

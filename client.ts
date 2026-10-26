@@ -1,50 +1,54 @@
-import { getSupabase } from "@/lib/supabase/client";
-import { marksStore } from "@/lib/offline/local-db";
-import { idbOpStore } from "@/lib/offline/idb-store";
-import { enqueue } from "@/lib/offline/sync";
-import { reconcileMark } from "./reconcile";
-import { markKey, type LocalMark, type MarkColor, type ServerMark } from "./types";
+import { kv } from "@/lib/offline/local-db";
+import { audioTitle } from "./titles";
+import { buildTrackIndex, norm, trackUrl, type ArchiveFile } from "./archive";
 
-/** Remplace l'opération en file pour ce verset : seule la plus récente compte (dernier écrit gagne). */
-async function queueMark(m: LocalMark): Promise<void> {
-  for (const op of await idbOpStore.getAll()) if (op.payload.type === "verse_mark" && markKey(op.payload.book, op.payload.chapter, op.payload.verse) === m.key) await idbOpStore.remove(op.opId);
-  await enqueue(idbOpStore, { type: "verse_mark", book: m.book, chapter: m.chapter, verse: m.verse, favorite: m.favorite, color: m.color, ts: m.ts }, Date.now(), () => crypto.randomUUID());
-}
+export const AUDIO_CACHE = "bc-audio-v1"; // distinct de bc-shell-* et bc-bible-* : jamais effacé par la mise à jour de l'application
+const MAX_AGE = 30 * 86_400_000;
 
-/** Modifie favori et/ou couleur d'un verset. Enregistré sur l'appareil d'abord, puis mis en file. */
-export async function setMark(book: string, chapter: number, verse: number, patch: { favorite?: boolean; color?: MarkColor | null }): Promise<LocalMark> {
-  const key = markKey(book, chapter, verse);
-  const prev = await marksStore.get(key);
-  const m: LocalMark = {
-    key, book, chapter, verse,
-    favorite: patch.favorite ?? prev?.favorite ?? false,
-    color: patch.color === undefined ? prev?.color ?? null : patch.color,
-    ts: Math.max(Date.now(), (prev?.ts ?? 0) + 1), // toujours strictement plus récent que la version précédente
-    dirty: true,
-  };
-  await marksStore.put(m);
-  await queueMark(m);
-  return m;
-}
-
-/** Récupère les marques du serveur (autres appareils) et les réconcilie. Retourne true si un renvoi est nécessaire. */
-export async function pullMarks(): Promise<boolean> {
-  const sb = getSupabase();
-  if (!sb || !navigator.onLine) return false;
-  const queued = new Set((await idbOpStore.getAll()).flatMap((o) => (o.payload.type === "verse_mark" ? [markKey(o.payload.book, o.payload.chapter, o.payload.verse)] : [])));
-  let needsSend = false;
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from("verse_marks").select("book_id,chapter,verse,favorite,color,client_ts").order("book_id").order("chapter").order("verse").range(from, from + 999);
-    if (error) throw new Error(error.message);
-    const rows = (data ?? []) as { book_id: string; chapter: number; verse: number; favorite: boolean; color: MarkColor | null; client_ts: number }[];
-    for (const r of rows) {
-      const s: ServerMark = { book: r.book_id, chapter: r.chapter, verse: r.verse, favorite: r.favorite, color: r.color, ts: Number(r.client_ts) };
-      const key = markKey(s.book, s.chapter, s.verse);
-      const res = reconcileMark(await marksStore.get(key), s, queued.has(key));
-      if (res.changed) await marksStore.put(res.mark);
-      if (res.requeue) { await queueMark(res.mark); needsSend = true; }
-    }
-    if (rows.length < 1000) break;
+/** Liste des pistes (titre → fichier), mémorisée 30 jours pour fonctionner hors connexion. */
+export async function getTrackIndex(item: string): Promise<Record<string, string>> {
+  const key = `audio:index:${item}`;
+  const cached = await kv.get<{ map: Record<string, string>; at: number }>(key).catch(() => undefined);
+  if (cached && (!navigator.onLine || Date.now() - cached.at < MAX_AGE)) return cached.map;
+  try {
+    const r = await fetch(`https://archive.org/metadata/${item}`);
+    if (!r.ok) throw new Error(`Liste des enregistrements indisponible (${r.status}).`);
+    const json = (await r.json()) as { files?: ArchiveFile[] };
+    const map = buildTrackIndex(json.files ?? []);
+    if (Object.keys(map).length === 0) throw new Error("Aucun enregistrement trouvé dans la liste.");
+    await kv.set(key, { map, at: Date.now() });
+    return map;
+  } catch (e) {
+    if (cached) return cached.map; // liste périmée mais utilisable
+    throw new Error(`${(e as Error).message || "Réseau indisponible"} Utilisez la voix du téléphone en attendant.`);
   }
-  return needsSend;
+}
+
+export async function chapterAudioUrl(item: string, book: string, chapter: number): Promise<string | null> {
+  const title = audioTitle(book, chapter); if (!title) return null;
+  const file = (await getTrackIndex(item))[norm(title)];
+  return file ? trackUrl(item, file) : null;
+}
+
+export const audioCacheSupported = () => typeof caches !== "undefined";
+export async function isAudioCached(url: string): Promise<boolean> { return audioCacheSupported() && !!(await (await caches.open(AUDIO_CACHE)).match(url)); }
+
+/** Copie le chapitre sur l'appareil (fichier inchangé). Peut échouer si le serveur n'autorise pas la copie depuis une application web. */
+export async function downloadAudio(url: string): Promise<void> {
+  if (!audioCacheSupported()) throw new Error("Le stockage hors connexion n'est pas disponible sur ce navigateur.");
+  const c = await caches.open(AUDIO_CACHE);
+  if (await c.match(url)) return;
+  let r: Response;
+  try { r = await fetch(url); } catch { throw new Error("Téléchargement impossible : l'écoute en ligne reste disponible."); }
+  if (!r.ok) throw new Error(`Téléchargement impossible (${r.status}).`);
+  await c.put(url, r);
+}
+
+/** Adresse lisible : copie locale si elle existe, sinon l'adresse en ligne. */
+export async function playableSrc(url: string): Promise<{ src: string; revoke: () => void }> {
+  if (audioCacheSupported()) {
+    const hit = await (await caches.open(AUDIO_CACHE)).match(url);
+    if (hit) { const obj = URL.createObjectURL(await hit.blob()); return { src: obj, revoke: () => URL.revokeObjectURL(obj) }; }
+  }
+  return { src: url, revoke: () => {} };
 }

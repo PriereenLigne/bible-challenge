@@ -1,0 +1,4 @@
+IMPORTANT : glissez les DOSSIERS (src, tests, docs, public), pas les fichiers qu'ils contiennent.
+Glissez aussi, tels quels, tsconfig.json et README.md.
+Après l'envoi, ouvrez src/lib/audio sur GitHub : il doit contenir 4 fichiers
+(archive.ts, client.ts, titles.ts, voice.ts).

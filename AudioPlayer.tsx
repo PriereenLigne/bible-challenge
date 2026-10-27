@@ -77,6 +77,7 @@ export function AudioPlayer(p: AudioPlayerProps) {
     if (mode !== "rec" || !aud) return;
     let active = true; let revoke = () => {};
     setUrl(undefined); setStatus(null); setPlaying(false);
+    audioRef.current?.pause(); // l'ancien chapitre ne doit pas continuer pendant la recherche du nouveau
     (async () => {
       try {
         const u = await chapterAudioUrl(aud.item, p.book, p.chapter);

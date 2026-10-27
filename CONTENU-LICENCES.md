@@ -3,7 +3,7 @@
 ## Louis Segond 1910 (`lsg`)
 - **Source :** eBible.org, fiche `fraLSG`, fichier `fraLSG_usfx.zip` (module généré le 18 oct. 2026).
 - **Licence :** domaine public, selon la mention d'eBible.org : « Cette Bible est dans le domaine public. Il n'est pas protégé par copyright. »
-- **Autorisations enregistrées :** reproduction oui, téléchargement hors connexion oui, audio non.
+- **Autorisations enregistrées :** reproduction oui, téléchargement hors connexion oui, audio oui (voix de synthèse locale ; enregistrement Trésor Sonore sous les conditions ci-dessous). Le champ `allow_audio` de la table `content_licenses` n'est lu par aucun code de l'application : le mettre à `true` en base reste facultatif.
 - **Contenu conservé :** uniquement le texte des versets (66 livres, 1189 chapitres, 31 170 versets).
 - **Contenu volontairement exclu :** introductions aux livres, titres de section, renvois et notes. Leur statut juridique n'a pas été vérifié séparément.
 - **Conversion :** `scripts/import-bible.mjs`, avec contrôle automatique contre le canon protestant (chapitres, numérotation, versets vides).

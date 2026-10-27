@@ -9,7 +9,6 @@ import { isActive, type LocalMark, type MarkColor } from "@/lib/marks/types";
 import { parseReaderParams } from "@/lib/bible/params";
 import { loadBook, loadVersions, type BibleVersion, type BookText } from "@/lib/bible/store";
 import { localToday, type ChallengeLite } from "@/lib/challenges/active";
-import { AudioPlayer } from "@/components/AudioPlayer";
 import { DownloadPanel } from "@/components/DownloadPanel";
 import { Icon } from "@/components/Icon";
 import { NoteBlock } from "@/components/NoteBlock";
@@ -42,7 +41,6 @@ export function BibleReader() {
   const [selected, setSelected] = useState<number | null>(null);
   const [jump, setJump] = useState<number | null>(null);
   const [sheetMsg, setSheetMsg] = useState<string | null>(null);
-  const [speaking, setSpeaking] = useState<number | null>(null);
   const posRef = useRef(pos); posRef.current = pos;
 
   useEffect(() => {
@@ -84,10 +82,6 @@ export function BibleReader() {
     setSelected(jump); setJump(null);
     requestAnimationFrame(() => document.getElementById(`v-${jump}`)?.scrollIntoView({ block: "center", behavior: "smooth" }));
   }, [jump, chapter]);
-
-  useEffect(() => { if (speaking !== null) document.getElementById(`v-${speaking}`)?.scrollIntoView({ block: "center", behavior: "smooth" }); }, [speaking]);
-  const goNext = useCallback(() => { const n = step(posRef.current, 1); if (n) setPos(n); return n !== null; }, []);
-  const goPrev = useCallback(() => { const n = step(posRef.current, -1); if (n) setPos(n); return n !== null; }, []);
 
   const cBook = challenge?.book_ids.includes(pos.book) ?? false;
   const cId = challenge?.id;
@@ -145,8 +139,6 @@ export function BibleReader() {
         <button type="button" className={`${nav} px-3 text-lg`} aria-label="Texte plus grand" onClick={() => setSize((s) => Math.min(30, s + 2))}>A+</button>
       </div>
 
-      <AudioPlayer version={version} book={pos.book} chapter={pos.chapter} label={`${BOOK_BY_ID.get(pos.book)?.name ?? ""} ${pos.chapter}`} verses={chapter?.v ?? null} onNext={goNext} onPrev={goPrev} onSpeaking={setSpeaking} />
-
       <article lang={version.language} className="font-reading" style={{ fontSize: size }}>
         <header className="mb-8 text-center">
           <p className="font-ui text-[0.55em] uppercase tracking-[0.3em] text-muted">{def?.testament === "AT" ? "Ancien Testament" : "Nouveau Testament"}</p>
@@ -165,7 +157,7 @@ export function BibleReader() {
                 <p key={n} id={`v-${n}`} role="button" tabIndex={0} aria-pressed={selected === n}
                   onClick={() => { setSelected(selected === n ? null : n); setSheetMsg(null); }}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(selected === n ? null : n); setSheetMsg(null); } }}
-                  className={`-mx-2 grid cursor-pointer grid-cols-[2.4rem_1fr] gap-x-2 rounded-xl px-2 py-1.5 leading-[1.7] transition ${m?.color ? `hl-${m.color}` : ""} ${selected === n ? "ring-2 ring-calm" : speaking === n ? "bg-sand/50" : "hover:bg-sand/20"}`}>
+                  className={`-mx-2 grid cursor-pointer grid-cols-[2.4rem_1fr] gap-x-2 rounded-xl px-2 py-1.5 leading-[1.7] transition ${m?.color ? `hl-${m.color}` : ""} ${selected === n ? "ring-2 ring-calm" : "hover:bg-sand/20"}`}>
                   <span className="select-none pt-[0.38em] text-right font-ui text-[0.62em] font-bold text-progress">{n}</span>
                   <span>{t}{m?.favorite && <Icon name="heart" size={14} filled className="ml-1.5 inline align-baseline text-rose-500" />}</span>
                 </p>

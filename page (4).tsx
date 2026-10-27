@@ -1,10 +1,10 @@
-import { PlanBuilder } from "@/components/PlanBuilder";
-export const metadata = { title: "Défis · Bible Challenge" };
-export default function Page() {
+import { TodayReading } from "@/components/TodayReading";
+
+export default function Home() {
   return (
     <div className="space-y-5">
-      <h1 className="font-reading text-3xl font-semibold text-forest">Choisir un programme</h1>
-      <PlanBuilder />
+      <h1 className="font-reading text-3xl font-semibold text-forest">Bonjour</h1>
+      <TodayReading />
     </div>
   );
 }

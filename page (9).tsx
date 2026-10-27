@@ -1,3 +1,9 @@
-import { ProfileDashboard } from "@/components/ProfileDashboard";
-export const metadata = { title: "Mon tableau de bord · Bible Challenge" };
-export default function Page() { return <ProfileDashboard />; }
+import { BibleReader } from "@/components/BibleReader";
+export const metadata = { title: "Lire · Bible Challenge" };
+export default function Page() {
+  return (
+    <div className="space-y-5">
+      <BibleReader />
+    </div>
+  );
+}

@@ -48,7 +48,7 @@ export function DayPanel({ cid, plan, reads, done, dayIdx, todayIdx, rawIdx, sta
 
         {day.rest ? <p className="mt-4 rounded-2xl bg-bg p-4 text-center text-sm text-muted">Jour de repos : aucune lecture prévue. Profitez-en pour méditer ou relire.</p> : (
           <>
-            <div className="mt-4 flex items-center justify-between text-xs text-muted"><span>{readCount} / {chapters.length} chapitre{chapters.length > 1 ? "s" : ""} lu{readCount > 1 ? "s" : ""}</span>{allRead && <span className="font-semibold text-progress">Lecture terminée ✓</span>}</div>
+            <div className="mt-4 flex items-center justify-between text-xs text-muted"><span>{readCount} / {chapters.length} chapitre{chapters.length > 1 ? "s" : ""} lu{readCount > 1 ? "s" : ""}</span>{allRead ? <span className="font-semibold text-progress">Lecture terminée ✓</span> : chapters[0] && <Link href={readerHref(chapters[0].book, chapters[0].chapter, cid)} className="inline-flex min-h-11 items-center gap-1.5 font-medium text-calm"><Icon name="headphones" size={16} />Écouter</Link>}</div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line"><div className="h-full rounded-full bg-progress transition-all duration-700" style={{ width: `${chapters.length ? (readCount / chapters.length) * 100 : 0}%` }} /></div>
             <ul className="mt-4 space-y-2">
               {chapters.map(({ book, chapter }) => {

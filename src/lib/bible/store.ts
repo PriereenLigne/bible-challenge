@@ -2,6 +2,8 @@ export interface BibleVersion {
   id: string; name: string; language: string; publisher: string; license: string;
   allowReproduction: boolean; allowOffline: boolean; allowAudio: boolean;
   attribution: string; isTestData: boolean; revision: number; sizeBytes: number;
+  /** Enregistrement audio autorisé (facultatif). */
+  audio?: { item: string; provider: string; license: string; licenseUrl: string; sourceUrl: string; attribution: string };
 }
 export interface BookText { id: string; chapters: { c: number; t?: string; v: [number, string][] }[] }
 

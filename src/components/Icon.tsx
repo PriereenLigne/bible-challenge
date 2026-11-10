@@ -27,6 +27,11 @@ const PATHS = {
   x: "M6 6l12 12M18 6 6 18",
   highlighter: "M14 4l6 6-8 8H7v-5zM4 21h6",
   crown: "M4 8l4 4 4-6 4 6 4-4-2 11H6z",
+  headphones: "M4 16v-4a8 8 0 0 1 16 0v4M4 16a2 2 0 0 1 2-2h1v6H6a2 2 0 0 1-2-2zM20 16a2 2 0 0 0-2-2h-1v6h1a2 2 0 0 0 2-2z",
+  play: "M8 5v14l11-7z",
+  pause: "M8 5v14M16 5v14",
+  "skip-forward": "M5 5v14l10-7zM19 5v14",
+  "skip-back": "M19 5v14L9 12zM5 5v14",
 } as const;
 export type IconName = keyof typeof PATHS;
 

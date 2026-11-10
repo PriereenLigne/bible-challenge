@@ -1,6 +1,8 @@
 # Bible Challenge
 
-Application de lecture biblique par défis, PWA, utilisable hors connexion. **Statut : fondations (phases 1 à 3 partielles).**
+Application de lecture biblique par défis, PWA, utilisable hors connexion. En ligne : https://bible-challenge-eta.vercel.app
+
+**Statut : fonctionnelle, en cours de finition.**
 
 ## Démarrage
 ```bash
@@ -31,19 +33,25 @@ Copiez `.env.example` vers `.env.local` et renseignez votre projet Supabase (auc
 - Lecteur biblique (`src/components/BibleReader.tsx`), téléchargement hors connexion (`DownloadPanel`), importeur USFM vérifié contre le canon (`scripts/import-bible.mjs`)
 - Coquille PWA (manifest, Service Worker, logo), navigation 5 entrées, aperçu de calendrier fonctionnel sur `/defis`
 
-## Vérifié
-143 tests de logique pure exécutés avec succès, sur un lanceur Node de remplacement (vitest n'a pas pu être installé sans réseau). Relancez `npm test` pour la confirmation officielle.
+## Vérifié (10 novembre 2026)
+- `npm install`, `npm run typecheck`, `npm test` (143 tests, 16 fichiers) et `npm run build` passent sans erreur.
 
-## NON vérifié
-- `npm install`, `tsc`, `next build` : jamais exécutés
-- Migration SQL et politiques RLS : jamais appliquées à une base réelle
-- Service Worker et IndexedDB : jamais exécutés dans un navigateur ; test hors ligne sur appareil réel requis
-- Aucun déploiement effectué
+## Reste à vérifier
+- Service Worker, IndexedDB et lecture audio hors connexion : à tester sur un vrai téléphone.
+- Politiques RLS et fonctions `security definer` (module équipes) : relecture de sécurité recommandée.
 
 ## Pas encore implémenté
-Authentification, branchement de la file hors ligne à l'interface, lecteur biblique (aucun texte sous licence), enregistrement des défis, notes, favoris, équipes, invitations, badges, rappels, administration, paiements, tests e2e et de sécurité.
+Notifications push (les rappels passent par un fichier .ics), administration, tests de bout en bout (navigateur), intégration continue, suivi des erreurs, pages légales (confidentialité, conditions d'utilisation).
 
-## Prochaines étapes
-1. Déposer ce code dans un dépôt GitHub, lancer `npm install && npm test && npm run build`.
-2. Créer un projet Supabase, appliquer `0001_core.sql`, fournir URL et clé publique.
-3. Phase 2 : écrans d'authentification, branchement de `createSupabaseTransport` à `syncOnce` dans l'interface, enregistrement des défis.
+## Organisation du dépôt
+```
+src/app/          pages (Next.js App Router)
+src/components/   composants d'interface
+src/lib/          logique métier (bible, plans, progression, hors ligne, équipes, audio…)
+tests/            tests vitest
+public/bibles/    texte Louis Segond 1910 (JSON par livre)
+supabase/         migrations SQL (migrations/) et versions pour l'éditeur SQL (sql-editor/)
+scripts/          importeurs de textes bibliques
+docs/             architecture et licences des contenus
+```
+Pour envoyer des modifications, utilisez Git plutôt que l'envoi de fichiers sur le site GitHub : glisser des fichiers isolés les dépose à la racine du dépôt au lieu de leur dossier.

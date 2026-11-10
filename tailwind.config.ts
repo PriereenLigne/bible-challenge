@@ -14,9 +14,11 @@ export default {
       boxShadow: { card: "var(--shadow-card)", lift: "var(--shadow-lift)" },
       keyframes: {
         "fade-up": { from: { opacity: "0", transform: "translateY(12px)" }, to: { opacity: "1", transform: "none" } },
+        "sheet-up": { from: { transform: "translateY(100%)" }, to: { transform: "none" } },
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
         pop: { "0%": { transform: "scale(.9)", opacity: "0" }, "60%": { transform: "scale(1.04)" }, "100%": { transform: "scale(1)", opacity: "1" } },
       },
-      animation: { "fade-up": "fade-up .55s cubic-bezier(.2,.7,.2,1) both", pop: "pop .35s ease-out both" },
+      animation: { "fade-up": "fade-up .55s cubic-bezier(.2,.7,.2,1) both", pop: "pop .35s ease-out both", "sheet-up": "sheet-up .32s cubic-bezier(.2,.8,.2,1) both", "fade-in": "fade-in .2s ease-out both" },
     },
   },
 } satisfies Config;

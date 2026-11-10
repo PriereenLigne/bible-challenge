@@ -14,7 +14,7 @@ const ITEMS: { href: string; label: string; icon: IconName }[] = [
 export function BottomNav() {
   const path = usePathname();
   return (
-    <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-40 px-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}>
+    <nav aria-label="Navigation principale" className="bottom-nav fixed inset-x-0 bottom-0 z-40 px-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}>
       <ul className="mx-auto flex max-w-md items-center justify-between rounded-[1.6rem] border border-line bg-surface/90 p-1.5 shadow-lift backdrop-blur-xl">
         {ITEMS.map((i) => {
           const active = i.href === "/" ? path === "/" : path.startsWith(i.href);

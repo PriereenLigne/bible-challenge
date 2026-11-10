@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { notesStore } from "@/lib/offline/local-db";
 import { saveNote } from "@/lib/notes/client";
 import { runSync } from "@/lib/offline/mark-read";
+import { Icon } from "@/components/Icon";
 
 /** Bloc-notes privé : enregistré sur l'appareil à chaque pause de frappe, synchronisé ensuite. Fonctionne hors connexion. */
-export function NoteBlock({ refKey, title, placeholder }: { refKey: string; title: string; placeholder?: string }) {
+export function NoteBlock({ refKey, title, placeholder, collapsible = false }: { refKey: string; title: string; placeholder?: string; collapsible?: boolean }) {
+  const [expanded, setExpanded] = useState(!collapsible);
   const [text, setText] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState("");
@@ -28,12 +30,18 @@ export function NoteBlock({ refKey, title, placeholder }: { refKey: string; titl
 
   useEffect(() => {
     let active = true; setLoaded(false); dirty.current = false;
-    notesStore.get(refKey).then((n) => { if (!active) return; latest.current = n?.body ?? ""; setText(latest.current); setStatus(n && n.dirty ? "En attente de synchronisation" : ""); setLoaded(true); })
+    notesStore.get(refKey).then((n) => { if (!active) return; latest.current = n?.body ?? ""; if (collapsible) setExpanded(latest.current.trim() !== ""); setText(latest.current); setStatus(n && n.dirty ? "En attente de synchronisation" : ""); setLoaded(true); })
       .catch((e) => { if (active) setStatus(`Lecture de la note impossible : ${(e as Error).message}`); });
     return () => { active = false; void flush(); }; // ne perd pas un texte en cours de frappe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refKey]);
 
+  if (!expanded) {
+    return (
+      <button type="button" disabled={!loaded} onClick={() => { setExpanded(true); requestAnimationFrame(() => document.getElementById(`note-${refKey}`)?.focus()); }}
+        className="btn-ghost w-full gap-2 text-sm"><Icon name="pencil" size={17} />Écrire une note</button>
+    );
+  }
   return (
     <section className="rounded-2xl border border-line bg-surface p-4">
       <label className="block text-sm font-semibold" htmlFor={`note-${refKey}`}>{title}</label>

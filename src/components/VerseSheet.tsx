@@ -5,9 +5,9 @@ import { COLOR_LABEL, MARK_COLORS, type MarkColor } from "@/lib/marks/types";
 const SWATCH: Record<MarkColor, string> = { jaune: "#FADE6E", vert: "#8CD2A0", bleu: "#8CBEF0", rose: "#F5AAC3", orange: "#FAB46E" };
 
 /** Panneau d'actions sur un verset sélectionné : favori, surlignage, copier, partager. */
-export function VerseSheet({ label, favorite, color, message, onFavorite, onColor, onCopy, onShare, onClose }: {
+export function VerseSheet({ label, favorite, color, message, onFavorite, onColor, onCopy, onShare, onClose, onListen }: {
   label: string; favorite: boolean; color: MarkColor | null; message: string | null;
-  onFavorite: () => void; onColor: (c: MarkColor | null) => void; onCopy: () => void; onShare: () => void; onClose: () => void;
+  onFavorite: () => void; onColor: (c: MarkColor | null) => void; onCopy: () => void; onShare: () => void; onClose: () => void; onListen?: () => void;
 }) {
   return (
     <div role="dialog" aria-label={`Actions sur ${label}`} className="fixed inset-x-3 z-50 mx-auto max-w-md animate-fade-up rounded-3xl border border-line bg-surface p-4 shadow-lift" style={{ bottom: "calc(env(safe-area-inset-bottom) + 92px)" }}>
@@ -29,6 +29,7 @@ export function VerseSheet({ label, favorite, color, message, onFavorite, onColo
         <button type="button" onClick={onCopy} className="btn-ghost min-h-12 flex-col gap-0.5 px-2 text-xs"><Icon name="copy" size={20} />Copier</button>
         <button type="button" onClick={onShare} className="btn-ghost min-h-12 flex-col gap-0.5 px-2 text-xs"><Icon name="share" size={20} />Partager</button>
       </div>
+      {onListen && <button type="button" onClick={onListen} className="btn-ghost mt-2 min-h-12 w-full gap-2 text-sm"><Icon name="headphones" size={18} />Écouter à partir d’ici</button>}
       {message && <p role="status" className="mt-2 text-center text-xs text-calm">{message}</p>}
     </div>
   );

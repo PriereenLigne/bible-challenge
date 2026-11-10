@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase/client";
@@ -74,6 +75,7 @@ export default function Page() {
         <button type="submit" disabled={busy} className="min-h-12 w-full rounded-xl bg-forest px-5 font-medium text-bg disabled:opacity-60">
           {busy ? "Un instant…" : mode === "in" ? "Se connecter" : "Créer mon compte"}
         </button>
+        {mode === "up" && <p className="text-xs leading-relaxed text-muted">En créant un compte, vous acceptez les <Link href="/conditions" className="text-calm underline">conditions d’utilisation</Link> et la <Link href="/confidentialite" className="text-calm underline">politique de confidentialité</Link>.</p>}
         {msg && <p role="status" className="text-sm text-calm">{msg}</p>}
       </form>
       {mode === "in" && <button type="button" disabled={busy} onClick={() => void forgot()} className="min-h-12 w-full text-sm text-calm underline">Mot de passe oublié ?</button>}

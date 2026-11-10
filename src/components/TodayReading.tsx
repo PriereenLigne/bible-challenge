@@ -22,6 +22,11 @@ import { rankMembers, ordinalFr } from "@/lib/ranking/rank";
 import { summarize } from "@/lib/stats/dashboard";
 import { DEFAULT_REMINDER, shouldNudge, type ReminderSettings } from "@/lib/reminders/settings";
 import type { MemberProgress } from "@/lib/teams/stats";
+import { celebrate, encouragement, greeting, type Celebration } from "@/lib/encourage/messages";
+import { CelebrationOverlay } from "@/components/CelebrationOverlay";
+import { Onboarding } from "@/components/Onboarding";
+import { ResumeReading } from "@/components/ResumeReading";
+import { VerseOfDay } from "@/components/VerseOfDay";
 
 const PAGE = 1000;
 const SELECT = "id,title,scope,book_ids,start_date,end_date,status,team_id";
@@ -47,6 +52,8 @@ export function TodayReading() {
   const [reminder, setReminder] = useState<ReminderSettings>(DEFAULT_REMINDER);
   const [dismissed, setDismissed] = useState(false);
   const stats = useUserStats();
+  const [party, setParty] = useState<Celebration | null>(null);
+  const hello = useMemo(() => greeting(new Date().getHours()), []);
 
   const challenge = useMemo(() => challenges.find((c) => c.id === selectedId) ?? null, [challenges, selectedId]);
 
@@ -181,23 +188,32 @@ export function TodayReading() {
 
   if (!session) {
     return (
-      <section className="hero animate-fade-up">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] muted">Bible Challenge</p>
+      <div className="stagger space-y-4">
+      <Onboarding signedIn={false} hasChallenge={false} />
+      <section className="hero">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] muted">{hello} et bienvenue</p>
         <h1 className="mt-2 font-reading text-3xl font-semibold leading-tight">Lire la Bible chaque jour, ensemble.</h1>
         <p className="mt-3 muted">Des défis de lecture, un quiz pour ancrer ce que vous lisez, des équipes pour avancer à plusieurs. Même sans connexion.</p>
-        <Link href="/connexion" className="btn-sand mt-5 w-full">Commencer<Icon name="chevron-right" size={18} /></Link>
+        <Link href="/connexion" className="btn-sand mt-5 w-full">Créer mon compte gratuit<Icon name="chevron-right" size={18} /></Link>
+        <Link href="/lire" className="mt-2 flex min-h-11 items-center justify-center text-sm font-medium muted underline">Lire sans compte</Link>
       </section>
+      <ResumeReading />
+      <VerseOfDay />
+      </div>
     );
   }
   if (!challenge || !plan || !cid || !progress) {
     return (
       <div className="stagger space-y-4">
+        <Onboarding signedIn hasChallenge={false} />
         {challenges.length > 0 && <ChallengeSwitcher challenges={challenges} selectedId={selectedId} onSelect={select} />}
         <section className="hero">
-          <h1 className="font-reading text-[1.65rem] font-semibold leading-tight">Bonjour {firstName}</h1>
+          <h1 className="font-reading text-[1.65rem] font-semibold leading-tight">{hello} {firstName}</h1>
           <p className="mt-2 muted">Choisissez un programme et une durée : le calendrier de lecture se génère pour vous, jour après jour.</p>
           <Link href="/defis" className="btn-sand mt-5 w-full">Choisir un programme<Icon name="chevron-right" size={18} /></Link>
         </section>
+        <ResumeReading />
+        <VerseOfDay />
         <Link href="/communaute" className="card flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sand/50 text-forest"><Icon name="users" size={22} /></span><span><span className="block font-medium">Rejoindre une équipe</span><span className="text-sm text-muted">Avec un code d’invitation reçu d’un ami</span></span></Link>
       </div>
     );
@@ -220,13 +236,16 @@ export function TodayReading() {
 
   return (
     <div className="stagger space-y-4">
+      <Onboarding signedIn hasChallenge />
+      {party && <CelebrationOverlay c={party} onClose={() => setParty(null)} />}
       <ChallengeSwitcher challenges={challenges} selectedId={selectedId} onSelect={select} />
-      <ChallengeHero firstName={firstName} title={challenge.title} dayNumber={todayIdx + 1} totalDays={total} percent={progress.contentReadPercent}
+      <ChallengeHero greeting={hello} encouragement={encouragement({ streak: summary?.streak ?? 0, chaptersBehind: progress.chaptersBehind, todayDone, daysDone: done.size })} firstName={firstName} title={challenge.title} dayNumber={todayIdx + 1} totalDays={total} percent={progress.contentReadPercent}
         daysDone={done.size} streak={summary?.streak ?? 0} cta={cta}
         rankText={myRank ? `${ordinalFr(myRank.rank)} sur ${rankedCount}` : null} />
       {nudge && <ReminderBanner onDismiss={() => setDismissed(true)} />}
       <DayPanel cid={cid} plan={plan} reads={reads} done={done} dayIdx={dayIdx} todayIdx={todayIdx} rawIdx={rawIdx} statuses={statuses}
-        onSelect={setSelDay} onMark={(b, c) => void markRead(b, c)} onDayDone={(dd) => { setDone((m) => new Map(m).set(dd.dayIndex, dd)); void stats.reload(); }} />
+        onSelect={setSelDay} onMark={(b, c) => void markRead(b, c)} onDayDone={(dd) => { setDone((m) => new Map(m).set(dd.dayIndex, dd)); setParty(celebrate(dd.dayIndex + 1, total, summary?.streak ?? 0)); void stats.reload(); }} />
+      <VerseOfDay />
       {ranking && uid && <RankingCard rows={ranking.rows} myId={uid} teamName={ranking.teamName} showRanking={ranking.showRanking} totalDays={total} stale={online ? null : ago(ranking.at)} />}
       <Link href="/profil" className="card flex items-center gap-3 transition active:scale-[.99]">
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-forest/10 text-forest"><Icon name="chart" size={22} /></span>

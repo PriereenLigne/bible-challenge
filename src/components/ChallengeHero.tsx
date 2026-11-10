@@ -6,6 +6,7 @@ export interface HeroProps {
   firstName: string; title: string; teamName?: string | null;
   dayNumber: number; totalDays: number; percent: number; daysDone: number; streak: number;
   rankText: string | null; cta: { label: string; href: string };
+  greeting: string; encouragement: string;
 }
 const longDate = () => new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
@@ -15,12 +16,14 @@ export function ChallengeHero(p: HeroProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] muted capitalize">{longDate()}</p>
-          <h1 className="mt-1 truncate font-reading text-[1.65rem] font-semibold leading-tight">Bonjour {p.firstName}</h1>
+          <h1 className="mt-1 truncate font-reading text-[1.65rem] font-semibold leading-tight">{p.greeting} {p.firstName}</h1>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold backdrop-blur" title="Jours de lecture consécutifs">
           <Icon name="flame" size={16} filled className="text-sand" />{p.streak}<span className="sr-only"> jour(s) consécutif(s)</span>
         </span>
       </div>
+
+      <p className="mt-2 text-sm leading-relaxed muted">{p.encouragement}</p>
 
       <div className="mt-5 flex items-center gap-5">
         <ProgressRing value={p.percent} size={116} stroke={10} label="Contenu lu">

@@ -5,6 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { Avatar } from "@/components/Avatar";
 import { Icon, type IconName } from "@/components/Icon";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { DeleteAccount } from "@/components/DeleteAccount";
 import { useUserStats } from "@/components/useUserStats";
 import { getSupabase } from "@/lib/supabase/client";
 import { kv } from "@/lib/offline/local-db";
@@ -92,6 +93,7 @@ export function ProfileDashboard() {
         <p className="mt-2 muted">Connectez-vous pour retrouver votre progression, vos badges et vos notes sur tous vos appareils.</p>
         <Link href="/connexion" className="btn-sand mt-5 w-full">Se connecter</Link>
         <div className="mt-5 rounded-2xl bg-white/10 p-3"><p className="mb-2 text-xs uppercase tracking-widest muted">Apparence</p><ThemeToggle /></div>
+        <p className="mt-4 text-center text-xs muted"><Link href="/confidentialite" className="underline">Confidentialité</Link><span className="mx-2">·</span><Link href="/conditions" className="underline">Conditions d’utilisation</Link></p>
       </section>
     );
   }
@@ -170,6 +172,8 @@ export function ProfileDashboard() {
 
       <section className="card"><p className="eyebrow mb-3">Apparence</p><ThemeToggle /></section>
       <button type="button" onClick={() => { void getSupabase()?.auth.signOut(); }} className="btn-ghost w-full">Se déconnecter</button>
+      <DeleteAccount />
+      <p className="text-center text-xs text-muted"><Link href="/confidentialite" className="underline">Confidentialité</Link><span className="mx-2">·</span><Link href="/conditions" className="underline">Conditions d’utilisation</Link></p>
     </div>
   );
 }

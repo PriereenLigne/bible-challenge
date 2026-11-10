@@ -39,3 +39,32 @@ jobs:
           # Valeurs fictives : la compilation n'a pas besoin de la vraie base.
           NEXT_PUBLIC_SUPABASE_URL: https://exemple.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: cle-fictive
+
+  base-de-donnees:
+    name: Migrations SQL sur PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reproduction minimale de Supabase
+        run: psql -v ON_ERROR_STOP=1 -q -f supabase/tests/00_supabase_stub.sql
+
+      - name: Application de toutes les migrations, dans l'ordre
+        run: for f in supabase/migrations/*.sql; do echo "== $f"; psql -v ON_ERROR_STOP=1 -q -f "$f"; done
+
+      - name: Scénarios de test
+        run: for f in supabase/tests/0*.sql; do case "$f" in */00_*) continue;; esac; echo "== $f"; psql -v ON_ERROR_STOP=1 -q -f "$f"; done

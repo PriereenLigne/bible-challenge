@@ -1,8 +1,9 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { audioCacheSupported, chapterAudioUrl, downloadAudio, isAudioCached, playableSrc } from "@/lib/audio/client";
 import { pickVoice } from "@/lib/audio/voice";
+import { buildTimeline, timeForVerse, verseAt } from "@/lib/audio/follow";
 import type { BibleVersion } from "@/lib/bible/store";
 import { kv } from "@/lib/offline/local-db";
 
@@ -13,6 +14,14 @@ export interface AudioPlayerProps {
   version: BibleVersion; label: string; verses: [number, string][] | null;
   onNext: () => boolean; onPrev: () => boolean; onSpeaking: (verse: number | null) => void;
   book: string; chapter: number;
+  /** Verset en cours de lecture (affiché dans le mini-lecteur). */
+  current: number | null;
+  /** Le texte suit-il la lecture ? Sinon, le mini-lecteur propose d'y revenir. */
+  follow: boolean; onFollow: () => void;
+  /** Demande de lecture à partir d'un verset (« Écouter à partir d'ici »). */
+  seek: { verse: number; id: number } | null;
+  /** Masque le mini-lecteur (panneau d'actions d'un verset ouvert). */
+  hideMini?: boolean;
 }
 
 /**
@@ -38,6 +47,11 @@ export function AudioPlayer(p: AudioPlayerProps) {
   const wantPlay = useRef(false);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const ttsIdx = useRef(0); const token = useRef(0); const ttsOn = useRef(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const [inView, setInView] = useState(true);
+  const timeline = useMemo(() => (p.verses ? buildTimeline(p.verses) : null), [p.verses]);
+  const lastVerse = useRef<number | null>(null);
+  const pendingSeek = useRef<number | null>(null);
 
   useEffect(() => { kv.get<{ mode: Mode; rate: number; auto: boolean }>("audio:prefs").then((s) => { if (s) { if (s.mode === "tts" || aud) setMode(s.mode); setRate(s.rate); setAutoNext(s.auto); } }).catch((e) => console.error("Préférences audio :", e)); }, [aud]);
   useEffect(() => { void kv.set("audio:prefs", { mode, rate, auto: autoNext }).catch((e) => console.error("Préférences audio :", e)); }, [mode, rate, autoNext]);
@@ -68,7 +82,7 @@ export function AudioPlayer(p: AudioPlayerProps) {
 
   // nouveau chapitre : on repart au début, et on lit tout de suite si la lecture était en cours
   useEffect(() => {
-    ttsIdx.current = 0; latest.current.onSpeaking(null);
+    ttsIdx.current = 0; lastVerse.current = null; pendingSeek.current = null; latest.current.onSpeaking(null);
     if (mode === "tts") { stopTts(); setPlaying(false); if (wantPlay.current && p.verses) { wantPlay.current = false; speakFrom(0); } }
   }, [mode, p.book, p.chapter, p.verses, speakFrom, stopTts]);
 
@@ -107,6 +121,40 @@ export function AudioPlayer(p: AudioPlayerProps) {
 
   useEffect(() => () => { stopTts(); audioRef.current?.pause(); latest.current.onSpeaking(null); }, [stopTts]);
 
+  // ---------- suivi du texte (voix enregistrée) ----------
+  const trackVerse = useCallback(() => {
+    const a = audioRef.current; const tl = timeline;
+    if (!a || !tl || mode !== "rec") return;
+    const v = verseAt(tl, a.currentTime, a.duration);
+    if (v !== null && v !== lastVerse.current) { lastVerse.current = v; latest.current.onSpeaking(v); }
+  }, [timeline, mode]);
+  const applySeek = useCallback(() => {
+    const a = audioRef.current; const v = pendingSeek.current;
+    if (!a || v === null || !timeline || !Number.isFinite(a.duration)) return false;
+    const t = timeForVerse(timeline, v, a.duration);
+    pendingSeek.current = null;
+    if (t !== null) { a.currentTime = t; lastVerse.current = v; latest.current.onSpeaking(v); }
+    return true;
+  }, [timeline]);
+
+  // « Écouter à partir d'ici »
+  useEffect(() => {
+    const s = p.seek; if (!s) return;
+    if (mode === "tts") { const i = p.verses?.findIndex(([n]) => n === s.verse) ?? -1; if (i >= 0) speakFrom(i); return; }
+    const a = audioRef.current; if (!a || !url) return;
+    pendingSeek.current = s.verse;
+    applySeek(); // si la durée est encore inconnue, le saut se fera dès son chargement (onLoadedMetadata)
+    void a.play().catch(() => setStatus("Appuyez sur lecture pour continuer."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.seek?.id]);
+
+  // mini-lecteur : visible quand le lecteur principal sort de l'écran
+  useEffect(() => {
+    const el = sectionRef.current; if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setInView(e?.isIntersecting ?? true), { rootMargin: "-60px 0px 0px 0px" });
+    io.observe(el); return () => io.disconnect();
+  }, []);
+
   // ---------- commandes ----------
   function switchMode(m: Mode) { if (m === mode) return; audioRef.current?.pause(); stopTts(); setPlaying(false); latest.current.onSpeaking(null); wantPlay.current = false; setMode(m); }
   function toggle() {
@@ -141,7 +189,8 @@ export function AudioPlayer(p: AudioPlayerProps) {
   const round = "flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface shadow-card transition active:scale-95 disabled:opacity-40";
 
   return (
-    <section className="card p-4" aria-label="Écouter le chapitre">
+    <>
+    <section ref={sectionRef} className="card p-4" aria-label="Écouter le chapitre">
       <div className="flex items-center gap-2"><Icon name="headphones" size={20} className="text-forest" /><h2 className="font-medium">Écouter {p.label}</h2></div>
       <div role="tablist" aria-label="Type de voix" className="mt-3 flex rounded-2xl border border-line bg-bg p-1">{seg("rec", "Voix enregistrée")}{seg("tts", "Voix du téléphone")}</div>
 
@@ -165,10 +214,25 @@ export function AudioPlayer(p: AudioPlayerProps) {
         </div>
       )}
       {mode === "tts" && <p className="mt-2 text-center text-xs leading-relaxed text-muted">{hasVoice ? "Lecture par la voix de votre téléphone, verset par verset. La qualité dépend des voix installées." : "Aucune voix française trouvée sur cet appareil : ajoutez-en une dans les réglages de synthèse vocale de votre téléphone."}</p>}
+      <p className="mt-2 text-center text-xs text-muted">Le verset lu est surligné et le texte défile tout seul. Touchez un verset puis « Écouter à partir d’ici » pour reprendre ailleurs.{mode === "rec" && " Avec la voix enregistrée, la position est estimée : elle peut avoir un léger décalage."}</p>
       <audio ref={audioRef} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+        onTimeUpdate={trackVerse} onSeeked={trackVerse} onLoadedMetadata={() => { applySeek(); trackVerse(); }}
         onEnded={() => { setPlaying(false); if (autoRef.current && latest.current.onNext()) wantPlay.current = true; }}
         onError={() => { if (audioRef.current?.getAttribute("src")) setStatus("Lecture impossible : vérifiez la connexion ou téléchargez le chapitre."); }} />
       {status && <p role="status" className="mt-2 text-center text-sm text-calm">{status}</p>}
     </section>
+
+    {playing && !inView && !p.hideMini && (
+      <div role="region" aria-label="Lecture en cours" className="fixed inset-x-3 z-40 mx-auto flex max-w-md animate-fade-up items-center gap-3 rounded-3xl border border-line bg-surface/95 p-2 pl-3 shadow-lift backdrop-blur-xl" style={{ bottom: "calc(env(safe-area-inset-bottom) + 92px)" }}>
+        <button type="button" onClick={toggle} aria-label="Pause" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-forest text-bg"><Icon name="pause" size={20} strokeWidth={3} /></button>
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-sm font-medium">{p.label}</p>
+          <p className="text-xs text-muted">{p.current !== null ? `Verset ${p.current}` : "Lecture…"}</p>
+        </div>
+        {!p.follow && <button type="button" onClick={p.onFollow} className="min-h-11 shrink-0 rounded-full bg-forest/10 px-3 text-sm font-medium text-forest">Suivre</button>}
+        <button type="button" onClick={() => jump(1)} aria-label="Chapitre suivant" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted"><Icon name="skip-forward" size={18} filled /></button>
+      </div>
+    )}
+    </>
   );
 }

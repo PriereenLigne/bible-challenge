@@ -57,7 +57,7 @@ export default function Page() {
       </Section>
 
       <Section title="7. Combien de temps nous les gardons">
-        <p>Vos données sont conservées tant que votre compte existe. Si vous demandez la suppression de votre compte, toutes les données qui y sont liées (profil, lectures, notes, favoris, appartenance aux équipes) sont effacées dans un délai de 30 jours.</p>
+        <p>Vos données sont conservées tant que votre compte existe. Vous pouvez supprimer votre compte à tout moment depuis votre profil (« Supprimer mon compte ») : toutes les données qui y sont liées (profil, lectures, notes, favoris, appartenance aux équipes) sont alors effacées immédiatement. Vous pouvez aussi nous le demander par e-mail ou WhatsApp ; la suppression est alors faite sous 30 jours.</p>
       </Section>
 
       <Section title="8. Vos droits">

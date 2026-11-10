@@ -22,7 +22,7 @@ export default function Page() {
           <li>Le compte est facultatif : la lecture est accessible sans inscription.</li>
           <li>Vous vous engagez à fournir une adresse e-mail valide et à garder votre mot de passe confidentiel. Toute action réalisée avec votre compte est réputée faite par vous.</li>
           <li>Un mineur ne peut créer un compte qu’avec l’accord d’un parent ou d’un tuteur.</li>
-          <li>Vous pouvez demander la suppression de votre compte à tout moment, par e-mail ou WhatsApp (voir plus bas).</li>
+          <li>Vous pouvez supprimer votre compte à tout moment depuis votre profil, ou le demander par e-mail ou WhatsApp (voir plus bas).</li>
         </ul>
       </Section>
 

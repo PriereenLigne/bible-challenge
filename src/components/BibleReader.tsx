@@ -16,6 +16,8 @@ import { Notice } from "@/components/Notice";
 import { VerseSheet } from "@/components/VerseSheet";
 import { PassagePicker } from "@/components/reader/PassagePicker";
 import { ReaderSettings } from "@/components/reader/ReaderSettings";
+import { LEGAL } from "@/lib/legal";
+import { shareVerseImage } from "@/lib/share/verse-image";
 import { LINE_HEIGHT, normalizePrefs, swipeDirection, type ReaderPrefs } from "@/lib/reader/prefs";
 
 interface Pos { book: string; chapter: number }
@@ -194,6 +196,14 @@ export function BibleReader() {
     try { if (navigator.share) await navigator.share({ text: quote(n) }); else await copyVerse(n); }
     catch (e) { if ((e as Error).name !== "AbortError") setSheetMsg("Partage impossible : essayez « Copier »."); }
   }
+  async function imageVerse(n: number) {
+    const t = chapter?.v.find(([k]) => k === n)?.[1]; if (!t || !version) return;
+    setSheetMsg("Préparation de l’image…");
+    try {
+      const r = await shareVerseImage({ text: t, reference: `${BOOK_BY_ID.get(pos.book)?.name ?? ""} ${pos.chapter}:${n}`, version: version.name, footer: `Bible Challenge · ${LEGAL.organisation}` });
+      setSheetMsg(r === "downloaded" ? "Image enregistrée : partagez-la depuis votre galerie." : null);
+    } catch (e) { setSheetMsg((e as Error).message); }
+  }
   function dismissTip() { setTipSeen(true); void kv.set("reader:tip-seen", true).catch(() => {}); }
   function toggleVerse(n: number) { setSelected(selected === n ? null : n); setSheetMsg(null); if (!tipSeen) dismissTip(); }
 
@@ -299,7 +309,7 @@ export function BibleReader() {
       {selected !== null && (
         <VerseSheet label={`${def?.name} ${pos.chapter}:${selected}`} favorite={selMark?.favorite ?? false} color={selMark?.color ?? null} message={sheetMsg}
           onFavorite={() => void applyMark(selected, { favorite: !(selMark?.favorite ?? false) })} onColor={(c) => void applyMark(selected, { color: c })}
-          onCopy={() => void copyVerse(selected)} onShare={() => void shareVerse(selected)}
+          onCopy={() => void copyVerse(selected)} onShare={() => void shareVerse(selected)} onImage={() => void imageVerse(selected)}
           onListen={() => { setSeek({ verse: selected, id: Date.now() }); setAudio((a) => (a.open ? a : { open: true, autoPlay: false })); setFollow(true); setSelected(null); setSheetMsg(null); }}
           onClose={() => { setSelected(null); setSheetMsg(null); }} />
       )}

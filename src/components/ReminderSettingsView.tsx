@@ -3,9 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { kv } from "@/lib/offline/local-db";
-import { buildReminderIcs } from "@/lib/reminders/ics";
+import { downloadReminderIcs } from "@/lib/reminders/export";
 import { DAY_LABELS, DEFAULT_REMINDER, isValidTime, type ReminderSettings } from "@/lib/reminders/settings";
-import { localToday } from "@/lib/challenges/active";
 
 export function ReminderSettingsView() {
   const [s, setS] = useState<ReminderSettings>(DEFAULT_REMINDER);
@@ -19,10 +18,7 @@ export function ReminderSettingsView() {
   }
   function exportIcs() {
     try {
-      const ics = buildReminderIcs({ time: s.time, days: s.days, url: window.location.origin, today: localToday(), now: new Date() });
-      const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
-      const a = document.createElement("a"); a.href = url; a.download = "rappel-bible-challenge.ics"; document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      downloadReminderIcs(s);
       setMsg("Fichier créé : ouvrez-le pour l’ajouter à votre calendrier. L’alarme sonnera même application fermée.");
     } catch (e) { setMsg((e as Error).message); }
   }

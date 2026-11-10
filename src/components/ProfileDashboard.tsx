@@ -5,6 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { Avatar } from "@/components/Avatar";
 import { Icon, type IconName } from "@/components/Icon";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { DeleteAccount } from "@/components/DeleteAccount";
 import { useUserStats } from "@/components/useUserStats";
 import { getSupabase } from "@/lib/supabase/client";
 import { kv } from "@/lib/offline/local-db";
@@ -171,6 +172,7 @@ export function ProfileDashboard() {
 
       <section className="card"><p className="eyebrow mb-3">Apparence</p><ThemeToggle /></section>
       <button type="button" onClick={() => { void getSupabase()?.auth.signOut(); }} className="btn-ghost w-full">Se déconnecter</button>
+      <DeleteAccount />
       <p className="text-center text-xs text-muted"><Link href="/confidentialite" className="underline">Confidentialité</Link><span className="mx-2">·</span><Link href="/conditions" className="underline">Conditions d’utilisation</Link></p>
     </div>
   );

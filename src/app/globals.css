@@ -66,3 +66,12 @@ select, input:not([type="checkbox"]):not([type="radio"]), textarea { color: rgb(
 html[data-immersive] .bottom-nav { transform: translateY(calc(100% + 16px)); }
 html[data-immersive] .reader-bar { transform: translateY(-100%); }
 html[data-immersive] .audio-dock { bottom: calc(env(safe-area-inset-bottom) + 12px); }
+
+/* ---------- Confettis de célébration ---------- */
+.confetti span { position: absolute; top: -24px; border-radius: 2px; opacity: 0; animation-name: confetti-fall; animation-timing-function: cubic-bezier(.25,.6,.4,1); animation-fill-mode: both; }
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) rotate(var(--rot)); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--drift), 105vh, 0) rotate(calc(var(--rot) + 540deg)); }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }

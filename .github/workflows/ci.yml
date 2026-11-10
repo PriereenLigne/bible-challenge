@@ -1,0 +1,41 @@
+# Vérifie chaque modification avant sa mise en ligne :
+# types TypeScript, tests automatiques et compilation de l'application.
+name: Vérifications
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifier:
+    name: Types, tests et compilation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installation des dépendances
+        run: npm ci
+
+      - name: Vérification des types
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Compilation
+        run: npm run build
+        env:
+          # Valeurs fictives : la compilation n'a pas besoin de la vraie base.
+          NEXT_PUBLIC_SUPABASE_URL: https://exemple.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: cle-fictive

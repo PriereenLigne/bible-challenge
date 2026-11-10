@@ -1,5 +1,7 @@
 # Bible Challenge
 
+[![Vérifications](https://github.com/PriereenLigne/bible-challenge/actions/workflows/ci.yml/badge.svg)](https://github.com/PriereenLigne/bible-challenge/actions/workflows/ci.yml)
+
 Application de lecture biblique par défis, PWA, utilisable hors connexion. En ligne : https://bible-challenge-eta.vercel.app
 
 **Statut : fonctionnelle, en cours de finition.**
@@ -36,12 +38,14 @@ Copiez `.env.example` vers `.env.local` et renseignez votre projet Supabase (auc
 ## Vérifié (10 novembre 2026)
 - `npm install`, `npm run typecheck`, `npm test` (143 tests, 16 fichiers) et `npm run build` passent sans erreur.
 
+Chaque modification envoyée sur GitHub est vérifiée automatiquement (types, tests, compilation) : voir l'onglet **Actions** du dépôt.
+
 ## Reste à vérifier
 - Service Worker, IndexedDB et lecture audio hors connexion : à tester sur un vrai téléphone.
 - Politiques RLS et fonctions `security definer` (module équipes) : relecture de sécurité recommandée.
 
 ## Pas encore implémenté
-Notifications push (les rappels passent par un fichier .ics), administration, tests de bout en bout (navigateur), intégration continue, suivi des erreurs, pages légales (confidentialité, conditions d'utilisation).
+Notifications push (les rappels passent par un fichier .ics), administration, tests de bout en bout (navigateur), suivi des erreurs, pages légales (confidentialité, conditions d'utilisation).
 
 ## Organisation du dépôt
 ```

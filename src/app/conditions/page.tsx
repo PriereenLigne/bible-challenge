@@ -10,7 +10,7 @@ export default function Page() {
       intro="Ces conditions fixent les règles d’utilisation de Bible Challenge. En créant un compte, vous les acceptez.">
 
       <Section title="1. Le service">
-        <p>Bible Challenge aide à lire la Bible régulièrement, seul ou en équipe : programmes de lecture, suivi de progression, quiz, notes, favoris, écoute audio et utilisation sans connexion. L’application est éditée par <strong>{LEGAL.owner}</strong>.</p>
+        <p>Bible Challenge aide à lire la Bible régulièrement, seul ou en équipe : programmes de lecture, suivi de progression, quiz, notes, favoris, écoute audio et utilisation sans connexion. L’application est éditée par l’organisation <strong>{LEGAL.organisation}</strong>, sous la responsabilité de <strong>{LEGAL.owner}</strong>.</p>
       </Section>
 
       <Section title="2. Une application gratuite et non commerciale">

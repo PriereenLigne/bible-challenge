@@ -34,7 +34,8 @@ export function Contact() {
   return (
     <section className="card" aria-label="Contact">
       <p className="eyebrow">Responsable et contact</p>
-      <p className="mt-2 font-medium">{LEGAL.owner}</p>
+      <p className="mt-2 font-medium">{LEGAL.organisation}</p>
+      <p className="text-sm text-muted">Responsable : {LEGAL.owner}</p>
       <ul className="mt-2 space-y-1 text-sm">
         <li>E-mail : <a className="text-calm underline" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></li>
         <li>WhatsApp : <a className="text-calm underline" href={LEGAL.whatsappLink} target="_blank" rel="noopener noreferrer">{LEGAL.whatsapp}</a></li>

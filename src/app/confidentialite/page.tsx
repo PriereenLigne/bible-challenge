@@ -9,7 +9,7 @@ export default function Page() {
       intro="Bible Challenge est une application gratuite, sans publicité, pour lire la Bible chaque jour, seul ou en équipe. Cette page explique, simplement, quelles informations nous enregistrons, pourquoi, et comment vous gardez la main dessus.">
 
       <Section title="1. Qui est responsable de vos données ?">
-        <p>Le responsable du traitement est <strong>{LEGAL.owner}</strong>, joignable par e-mail à <a className="text-calm underline" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> ou sur WhatsApp au {LEGAL.whatsapp}.</p>
+        <p>Bible Challenge est une application de l’organisation <strong>{LEGAL.organisation}</strong>. Le responsable du traitement est <strong>{LEGAL.owner}</strong>, responsable de {LEGAL.organisation}, joignable par e-mail à <a className="text-calm underline" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> ou sur WhatsApp au {LEGAL.whatsapp}.</p>
         <p>Le traitement est régi par le Livre V de la loi n° 2017-20 du 20 avril 2018 portant Code du numérique en {LEGAL.country}, telle que modifiée.</p>
       </Section>
 

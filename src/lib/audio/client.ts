@@ -20,7 +20,7 @@ export async function getTrackIndex(item: string): Promise<Record<string, string
     return map;
   } catch (e) {
     if (cached) return cached.map; // liste périmée mais utilisable
-    throw new Error(`${(e as Error).message || "Réseau indisponible"} Utilisez la voix du téléphone en attendant.`);
+    throw new Error(e instanceof TypeError || !(e as Error).message ? "Enregistrement injoignable : vérifiez la connexion." : (e as Error).message);
   }
 }
 

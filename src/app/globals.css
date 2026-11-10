@@ -58,3 +58,11 @@ select, input:not([type="checkbox"]):not([type="radio"]), textarea { color: rgb(
 .hl-jaune { background: rgb(var(--hl-jaune)); } .hl-vert { background: rgb(var(--hl-vert)); } .hl-bleu { background: rgb(var(--hl-bleu)); }
 .hl-rose { background: rgb(var(--hl-rose)); } .hl-orange { background: rgb(var(--hl-orange)); }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ---------- Écran de lecture ---------- */
+.bottom-nav, .reader-bar { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.audio-dock { bottom: calc(env(safe-area-inset-bottom) + 92px); transition: bottom .3s cubic-bezier(.2,.8,.2,1); }
+/* Mode immersif : en descendant dans le texte, les barres s'effacent ; elles reviennent dès qu'on remonte. */
+html[data-immersive] .bottom-nav { transform: translateY(calc(100% + 16px)); }
+html[data-immersive] .reader-bar { transform: translateY(-100%); }
+html[data-immersive] .audio-dock { bottom: calc(env(safe-area-inset-bottom) + 12px); }

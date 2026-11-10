@@ -1,5 +1,10 @@
+"use client";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 export function AppHeader() {
+  // L'écran de lecture a sa propre barre : on lui laisse toute la place.
+  if (usePathname() === "/lire") return null;
   return (
     <header className="sticky top-0 z-30 border-b border-line/60 bg-bg/80 backdrop-blur-xl" style={{ paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto flex h-14 max-w-2xl items-center px-4">

@@ -14,19 +14,22 @@ export interface AudioPlayerProps {
   version: BibleVersion; label: string; verses: [number, string][] | null;
   onNext: () => boolean; onPrev: () => boolean; onSpeaking: (verse: number | null) => void;
   book: string; chapter: number;
-  /** Verset en cours de lecture (affiché dans le mini-lecteur). */
+  /** Verset en cours de lecture. */
   current: number | null;
-  /** Le texte suit-il la lecture ? Sinon, le mini-lecteur propose d'y revenir. */
+  /** Le texte suit-il la lecture ? Sinon, la barre propose d'y revenir. */
   follow: boolean; onFollow: () => void;
   /** Demande de lecture à partir d'un verset (« Écouter à partir d'ici »). */
   seek: { verse: number; id: number } | null;
-  /** Masque le mini-lecteur (panneau d'actions d'un verset ouvert). */
-  hideMini?: boolean;
+  /** Lancer la lecture dès l'ouverture. */
+  autoPlay?: boolean;
+  /** Masque la barre (panneau d'un verset ouvert) sans couper le son. */
+  hidden?: boolean;
+  onClose: () => void;
 }
 
 /**
- * Écoute d'un chapitre : enregistrement humain (Trésor Sonore, CC BY-NC-ND, fichiers non modifiés)
- * ou voix de synthèse du téléphone (le texte est dans le domaine public).
+ * Écoute d'un chapitre, dans une barre flottante au-dessus du texte :
+ * enregistrement humain (Trésor Sonore, CC BY-NC-ND, fichiers non modifiés) ou voix de synthèse du téléphone.
  */
 export function AudioPlayer(p: AudioPlayerProps) {
   const aud = p.version.audio;
@@ -39,22 +42,29 @@ export function AudioPlayer(p: AudioPlayerProps) {
   const [cached, setCached] = useState(false);
   const [busy, setBusy] = useState(false);
   const [hasVoice, setHasVoice] = useState(true);
+  const [more, setMore] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const latest = useRef(p); latest.current = p;
   const rateRef = useRef(rate); rateRef.current = rate;
   const autoRef = useRef(autoNext); autoRef.current = autoNext;
-  const wantPlay = useRef(false);
+  const wantPlay = useRef(!!p.autoPlay);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const ttsIdx = useRef(0); const token = useRef(0); const ttsOn = useRef(false);
-  const sectionRef = useRef<HTMLElement>(null);
-  const [inView, setInView] = useState(true);
   const timeline = useMemo(() => (p.verses ? buildTimeline(p.verses) : null), [p.verses]);
   const lastVerse = useRef<number | null>(null);
   const pendingSeek = useRef<number | null>(null);
 
   useEffect(() => { kv.get<{ mode: Mode; rate: number; auto: boolean }>("audio:prefs").then((s) => { if (s) { if (s.mode === "tts" || aud) setMode(s.mode); setRate(s.rate); setAutoNext(s.auto); } }).catch((e) => console.error("Préférences audio :", e)); }, [aud]);
   useEffect(() => { void kv.set("audio:prefs", { mode, rate, auto: autoNext }).catch((e) => console.error("Préférences audio :", e)); }, [mode, rate, autoNext]);
+
+  // écran allumé pendant l'écoute (si le navigateur le permet)
+  useEffect(() => {
+    if (!playing || !("wakeLock" in navigator)) return;
+    let lock: WakeLockSentinel | null = null; let done = false;
+    navigator.wakeLock.request("screen").then((l) => { if (done) void l.release(); else lock = l; }).catch(() => {});
+    return () => { done = true; void lock?.release(); };
+  }, [playing]);
 
   // ---------- voix de synthèse ----------
   const stopTts = useCallback(() => { token.current++; ttsOn.current = false; if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel(); }, []);
@@ -82,8 +92,8 @@ export function AudioPlayer(p: AudioPlayerProps) {
 
   // nouveau chapitre : on repart au début, et on lit tout de suite si la lecture était en cours
   useEffect(() => {
-    ttsIdx.current = 0; lastVerse.current = null; pendingSeek.current = null; latest.current.onSpeaking(null);
-    if (mode === "tts") { stopTts(); setPlaying(false); if (wantPlay.current && p.verses) { wantPlay.current = false; speakFrom(0); } }
+    ttsIdx.current = 0; lastVerse.current = null; latest.current.onSpeaking(null);
+    if (mode === "tts") { stopTts(); setPlaying(false); if (wantPlay.current && p.verses) { wantPlay.current = false; const s = pendingSeek.current; pendingSeek.current = null; const i = s === null ? 0 : Math.max(0, p.verses.findIndex(([n]) => n === s)); speakFrom(i); } }
   }, [mode, p.book, p.chapter, p.verses, speakFrom, stopTts]);
 
   // ---------- enregistrement humain ----------
@@ -101,7 +111,7 @@ export function AudioPlayer(p: AudioPlayerProps) {
         const ps = await playableSrc(u); revoke = ps.revoke;
         if (!active) { revoke(); return; }
         const a = audioRef.current;
-        if (a) { a.src = ps.src; a.playbackRate = rateRef.current; if (wantPlay.current) { wantPlay.current = false; await a.play().catch(() => setStatus("Appuyez sur lecture pour continuer.")); } }
+        if (a) { a.src = ps.src; a.playbackRate = rateRef.current; if (wantPlay.current) { wantPlay.current = false; await a.play().catch(() => setStatus("Touchez lecture pour commencer.")); } }
       } catch (e) { if (active) { setUrl(null); setStatus((e as Error).message); } }
     })();
     return () => { active = false; revoke(); };
@@ -130,40 +140,37 @@ export function AudioPlayer(p: AudioPlayerProps) {
   }, [timeline, mode]);
   const applySeek = useCallback(() => {
     const a = audioRef.current; const v = pendingSeek.current;
-    if (!a || v === null || !timeline || !Number.isFinite(a.duration)) return false;
+    if (!a || v === null || !timeline || !Number.isFinite(a.duration)) return;
     const t = timeForVerse(timeline, v, a.duration);
     pendingSeek.current = null;
     if (t !== null) { a.currentTime = t; lastVerse.current = v; latest.current.onSpeaking(v); }
-    return true;
   }, [timeline]);
 
-  // « Écouter à partir d'ici »
+  // « Écouter à partir d'ici » (le lecteur peut venir de s'ouvrir : on attend alors que tout soit prêt)
   useEffect(() => {
     const s = p.seek; if (!s) return;
-    if (mode === "tts") { const i = p.verses?.findIndex(([n]) => n === s.verse) ?? -1; if (i >= 0) speakFrom(i); return; }
-    const a = audioRef.current; if (!a || !url) return;
+    if (mode === "tts") {
+      const i = p.verses?.findIndex(([n]) => n === s.verse) ?? -1;
+      if (i >= 0) speakFrom(i); else { pendingSeek.current = s.verse; wantPlay.current = true; }
+      return;
+    }
     pendingSeek.current = s.verse;
-    applySeek(); // si la durée est encore inconnue, le saut se fera dès son chargement (onLoadedMetadata)
-    void a.play().catch(() => setStatus("Appuyez sur lecture pour continuer."));
+    const a = audioRef.current;
+    if (!a || !url) { wantPlay.current = true; return; } // le chargement en cours lancera la lecture, le saut suivra
+    applySeek();
+    void a.play().catch(() => setStatus("Touchez lecture pour continuer."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p.seek?.id]);
 
-  // mini-lecteur : visible quand le lecteur principal sort de l'écran
-  useEffect(() => {
-    const el = sectionRef.current; if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([e]) => setInView(e?.isIntersecting ?? true), { rootMargin: "-60px 0px 0px 0px" });
-    io.observe(el); return () => io.disconnect();
-  }, []);
-
   // ---------- commandes ----------
-  function switchMode(m: Mode) { if (m === mode) return; audioRef.current?.pause(); stopTts(); setPlaying(false); latest.current.onSpeaking(null); wantPlay.current = false; setMode(m); }
+  function switchMode(m: Mode) { if (m === mode) return; audioRef.current?.pause(); stopTts(); setPlaying(false); latest.current.onSpeaking(null); wantPlay.current = false; setStatus(null); setMode(m); }
   function toggle() {
     if (mode === "rec") { const a = audioRef.current; if (!a || !url) return; if (a.paused) void a.play().catch(() => setStatus("Lecture impossible : vérifiez la connexion ou téléchargez le chapitre.")); else a.pause(); return; }
     if (playing) { stopTts(); setPlaying(false); return; }
     speakFrom(ttsIdx.current);
   }
   function jump(dir: 1 | -1) {
-    const was = playing; wantPlay.current = was;
+    wantPlay.current = playing;
     const moved = dir === 1 ? p.onNext() : p.onPrev();
     if (!moved) wantPlay.current = false;
   }
@@ -176,63 +183,64 @@ export function AudioPlayer(p: AudioPlayerProps) {
   async function download() {
     if (!url) return;
     setBusy(true); setStatus(null);
-    try { await downloadAudio(url); setCached(true); setStatus("Chapitre disponible hors connexion."); }
+    try { await downloadAudio(url); setCached(true); }
     catch (e) { setStatus((e as Error).message); }
     finally { setBusy(false); }
   }
 
   const disabled = mode === "rec" ? !url : !p.verses || !hasVoice;
+  const recFailed = mode === "rec" && url === null;
+  let sub: React.ReactNode = p.current !== null ? `Verset ${p.current}` : mode === "rec" ? "Voix enregistrée" : "Voix du téléphone";
+  if (mode === "rec" && url === undefined) sub = "Préparation…";
+  if (mode === "tts" && !hasVoice) sub = "Aucune voix française sur cet appareil";
+  if (status) sub = status;
+  if (recFailed && !status) sub = "Pas d’enregistrement pour ce chapitre";
+
+  const icon = "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-bg active:scale-95 disabled:opacity-40";
   const seg = (m: Mode, text: string) => (
-    <button type="button" role="tab" aria-selected={mode === m} onClick={() => switchMode(m)} disabled={m === "rec" && !aud}
+    <button type="button" role="radio" aria-checked={mode === m} onClick={() => switchMode(m)} disabled={m === "rec" && !aud}
       className={`min-h-11 flex-1 rounded-xl px-3 text-sm font-medium transition disabled:opacity-40 ${mode === m ? "bg-surface text-ink shadow-card" : "text-muted"}`}>{text}</button>
   );
-  const round = "flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface shadow-card transition active:scale-95 disabled:opacity-40";
 
   return (
-    <>
-    <section ref={sectionRef} className="card p-4" aria-label="Écouter le chapitre">
-      <div className="flex items-center gap-2"><Icon name="headphones" size={20} className="text-forest" /><h2 className="font-medium">Écouter {p.label}</h2></div>
-      <div role="tablist" aria-label="Type de voix" className="mt-3 flex rounded-2xl border border-line bg-bg p-1">{seg("rec", "Voix enregistrée")}{seg("tts", "Voix du téléphone")}</div>
-
-      <div className="mt-4 flex items-center justify-center gap-4">
-        <button type="button" className={round} aria-label="Chapitre précédent" onClick={() => jump(-1)}><Icon name="skip-back" size={20} filled /></button>
-        <button type="button" disabled={disabled} onClick={toggle} aria-label={playing ? "Pause" : "Lecture"} className="flex h-16 w-16 items-center justify-center rounded-full bg-forest text-bg shadow-lift transition active:scale-95 disabled:opacity-40">
-          <Icon name={playing ? "pause" : "play"} size={28} filled={!playing} strokeWidth={playing ? 3 : 1.8} />
-        </button>
-        <button type="button" className={round} aria-label="Chapitre suivant" onClick={() => jump(1)}><Icon name="skip-forward" size={20} filled /></button>
-        <button type="button" onClick={changeRate} aria-label={`Vitesse ${rate}`} className="min-h-12 min-w-14 rounded-full border border-line bg-surface px-3 text-sm font-semibold shadow-card">{rate}×</button>
-      </div>
-
-      <label className="mt-3 flex min-h-11 items-center justify-center gap-2 text-sm text-muted"><input type="checkbox" className="h-5 w-5" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} />Enchaîner avec le chapitre suivant</label>
-
-      {mode === "rec" && (
-        <div className="mt-2 space-y-2 text-center text-sm">
-          {url === undefined && <p className="text-muted">Recherche de l’enregistrement…</p>}
-          {url === null && !status && <p className="text-muted">Pas d’enregistrement pour ce chapitre.</p>}
-          {url && audioCacheSupported() && (cached ? <p className="font-medium text-progress">Disponible hors connexion ✓</p> : <button type="button" onClick={() => void download()} disabled={busy} className="btn-ghost min-h-11 px-4 text-sm"><Icon name="download" size={16} />{busy ? "Téléchargement…" : "Télécharger ce chapitre"}</button>)}
-          <p className="text-xs leading-relaxed text-muted">Enregistrement : <a className="underline" href={aud?.sourceUrl} target="_blank" rel="noopener noreferrer">{aud?.provider}</a>, licence <a className="underline" href={aud?.licenseUrl} target="_blank" rel="noopener noreferrer">{aud?.license}</a> (usage non commercial, sans modification).</p>
+    <div role="region" aria-label={`Écoute de ${p.label}`} className={`audio-dock fixed inset-x-3 z-40 mx-auto max-w-md animate-fade-up overflow-hidden rounded-[1.6rem] border border-line bg-surface/95 shadow-lift backdrop-blur-xl ${p.hidden ? "invisible" : ""}`}>
+      {more && (
+        <div className="space-y-3 border-b border-line p-3">
+          <div role="radiogroup" aria-label="Type de voix" className="flex rounded-2xl border border-line bg-bg p-1">{seg("rec", "Voix enregistrée")}{seg("tts", "Voix du téléphone")}</div>
+          <div className="flex items-center justify-between gap-2">
+            <button type="button" className="btn-ghost min-h-11 flex-1 gap-1.5 px-3 text-sm" onClick={() => jump(-1)}><Icon name="skip-back" size={16} filled />Chap. précédent</button>
+            <button type="button" className="btn-ghost min-h-11 flex-1 gap-1.5 px-3 text-sm" onClick={() => jump(1)}>Chap. suivant<Icon name="skip-forward" size={16} filled /></button>
+          </div>
+          <label className="flex min-h-11 items-center justify-between gap-3 px-1 text-sm"><span>Enchaîner avec le chapitre suivant</span>
+            <input type="checkbox" role="switch" className="h-5 w-5 accent-[rgb(var(--c-progress))]" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} /></label>
+          {mode === "rec" && url && audioCacheSupported() && (cached
+            ? <p className="px-1 text-sm font-medium text-progress">Ce chapitre est disponible sans connexion ✓</p>
+            : <button type="button" onClick={() => void download()} disabled={busy} className="btn-ghost min-h-11 w-full gap-1.5 text-sm"><Icon name="download" size={16} />{busy ? "Téléchargement…" : "Garder pour écouter sans connexion"}</button>)}
+          {mode === "rec" && aud && <p className="px-1 text-[0.7rem] leading-relaxed text-muted">Enregistrement : <a className="underline" href={aud.sourceUrl} target="_blank" rel="noopener noreferrer">{aud.provider}</a> · <a className="underline" href={aud.licenseUrl} target="_blank" rel="noopener noreferrer">{aud.license}</a></p>}
+          {mode === "tts" && <p className="px-1 text-[0.7rem] leading-relaxed text-muted">La qualité dépend des voix installées sur votre téléphone (réglages de synthèse vocale).</p>}
         </div>
       )}
-      {mode === "tts" && <p className="mt-2 text-center text-xs leading-relaxed text-muted">{hasVoice ? "Lecture par la voix de votre téléphone, verset par verset. La qualité dépend des voix installées." : "Aucune voix française trouvée sur cet appareil : ajoutez-en une dans les réglages de synthèse vocale de votre téléphone."}</p>}
-      <p className="mt-2 text-center text-xs text-muted">Le verset lu est surligné et le texte défile tout seul. Touchez un verset puis « Écouter à partir d’ici » pour reprendre ailleurs.{mode === "rec" && " Avec la voix enregistrée, la position est estimée : elle peut avoir un léger décalage."}</p>
+
+      <div className="flex items-center gap-1 p-2">
+        <button type="button" disabled={disabled} onClick={toggle} aria-label={playing ? "Pause" : "Lecture"}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-forest text-bg shadow-card transition active:scale-95 disabled:opacity-40">
+          <Icon name={playing ? "pause" : "play"} size={22} filled={!playing} strokeWidth={playing ? 3 : 1.8} />
+        </button>
+        <div className="min-w-0 flex-1 px-2 leading-tight">
+          <p className="truncate text-sm font-semibold">{p.label}</p>
+          <p role="status" className="truncate text-xs text-muted">{sub}</p>
+        </div>
+        {recFailed && hasVoice && <button type="button" onClick={() => switchMode("tts")} className="min-h-11 shrink-0 rounded-full bg-forest/10 px-3 text-xs font-semibold text-forest">Voix du téléphone</button>}
+        {!recFailed && !p.follow && p.current !== null && <button type="button" onClick={p.onFollow} className="min-h-11 shrink-0 rounded-full bg-forest/10 px-3 text-sm font-semibold text-forest">Suivre</button>}
+        <button type="button" onClick={changeRate} aria-label={`Vitesse ${rate}`} className="min-h-11 min-w-11 shrink-0 rounded-full px-1.5 text-sm font-semibold text-muted hover:bg-bg">{rate}×</button>
+        <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} aria-label="Options d’écoute" className={`${icon} ${more ? "bg-bg text-ink" : ""}`}><Icon name="more" size={22} strokeWidth={3.2} /></button>
+        <button type="button" onClick={p.onClose} aria-label="Fermer le lecteur" className={icon}><Icon name="x" size={19} /></button>
+      </div>
+
       <audio ref={audioRef} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
         onTimeUpdate={trackVerse} onSeeked={trackVerse} onLoadedMetadata={() => { applySeek(); trackVerse(); }}
         onEnded={() => { setPlaying(false); if (autoRef.current && latest.current.onNext()) wantPlay.current = true; }}
-        onError={() => { if (audioRef.current?.getAttribute("src")) setStatus("Lecture impossible : vérifiez la connexion ou téléchargez le chapitre."); }} />
-      {status && <p role="status" className="mt-2 text-center text-sm text-calm">{status}</p>}
-    </section>
-
-    {playing && !inView && !p.hideMini && (
-      <div role="region" aria-label="Lecture en cours" className="fixed inset-x-3 z-40 mx-auto flex max-w-md animate-fade-up items-center gap-3 rounded-3xl border border-line bg-surface/95 p-2 pl-3 shadow-lift backdrop-blur-xl" style={{ bottom: "calc(env(safe-area-inset-bottom) + 92px)" }}>
-        <button type="button" onClick={toggle} aria-label="Pause" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-forest text-bg"><Icon name="pause" size={20} strokeWidth={3} /></button>
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-sm font-medium">{p.label}</p>
-          <p className="text-xs text-muted">{p.current !== null ? `Verset ${p.current}` : "Lecture…"}</p>
-        </div>
-        {!p.follow && <button type="button" onClick={p.onFollow} className="min-h-11 shrink-0 rounded-full bg-forest/10 px-3 text-sm font-medium text-forest">Suivre</button>}
-        <button type="button" onClick={() => jump(1)} aria-label="Chapitre suivant" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted"><Icon name="skip-forward" size={18} filled /></button>
-      </div>
-    )}
-    </>
+        onError={() => { if (audioRef.current?.getAttribute("src")) setStatus("Lecture impossible : vérifiez la connexion."); }} />
+    </div>
   );
 }

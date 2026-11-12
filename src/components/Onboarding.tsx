@@ -120,7 +120,7 @@ export function Onboarding({ signedIn, hasChallenge }: { signedIn: boolean; hasC
         {step === last && (signedIn
           ? <Link href={hasChallenge ? "/" : "/defis"} onClick={() => finish(true)} className="btn w-full bg-forest text-bg">{hasChallenge ? "C’est parti" : "Choisir mon programme"}<Icon name="chevron-right" size={18} /></Link>
           : <>
-              <Link href="/connexion" onClick={() => finish(true)} className="btn w-full bg-forest text-bg">Créer mon compte<Icon name="chevron-right" size={18} /></Link>
+              <Link href="/connexion?mode=inscription" onClick={() => finish(true)} className="btn w-full bg-forest text-bg">Créer mon compte<Icon name="chevron-right" size={18} /></Link>
               <Link href="/lire" onClick={() => finish(true)} className="btn-ghost w-full">Lire sans compte</Link>
             </>)}
       </div>

@@ -76,3 +76,17 @@ describe("image de partage", () => {
     expect(long.size).toBeGreaterThanOrEqual(30);
   });
 });
+
+import { authErrorMessage } from "@/lib/auth/messages";
+describe("messages de connexion en français", () => {
+  it("traduit les erreurs courantes de Supabase", () => {
+    expect(authErrorMessage("Invalid login credentials")).toBe("E-mail ou mot de passe incorrect.");
+    expect(authErrorMessage("Email not confirmed")).toMatch(/pas encore été confirmée/);
+    expect(authErrorMessage("User already registered")).toMatch(/existe déjà/);
+    expect(authErrorMessage("x", "over_email_send_rate_limit")).toMatch(/Trop de tentatives/);
+    expect(authErrorMessage("Failed to fetch")).toMatch(/injoignable/);
+  });
+  it("laisse passer un message inconnu tel quel", () => {
+    expect(authErrorMessage("Quelque chose d’inattendu")).toBe("Quelque chose d’inattendu");
+  });
+});

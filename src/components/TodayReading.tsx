@@ -194,7 +194,7 @@ export function TodayReading() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] muted">{hello} et bienvenue</p>
         <h1 className="mt-2 font-reading text-3xl font-semibold leading-tight">Lire la Bible chaque jour, ensemble.</h1>
         <p className="mt-3 muted">Des défis de lecture, un quiz pour ancrer ce que vous lisez, des équipes pour avancer à plusieurs. Même sans connexion.</p>
-        <Link href="/connexion" className="btn-sand mt-5 w-full">Créer mon compte gratuit<Icon name="chevron-right" size={18} /></Link>
+        <Link href="/connexion?mode=inscription" className="btn-sand mt-5 w-full">Créer mon compte gratuit<Icon name="chevron-right" size={18} /></Link>
         <Link href="/lire" className="mt-2 flex min-h-11 items-center justify-center text-sm font-medium muted underline">Lire sans compte</Link>
       </section>
       <ResumeReading />

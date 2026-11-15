@@ -182,6 +182,21 @@ export function BibleReader() {
     } catch (e) { setMarkMsg(`Impossible d’enregistrer : ${(e as Error).message}`); }
   }
 
+  // écoute terminée jusqu'au bout = chapitre lu (seulement s'il fait partie du défi ouvert)
+  const challengeRef = useRef(challenge); challengeRef.current = challenge;
+  const onListened = useCallback(async (book: string, ch: number) => {
+    const c = challengeRef.current;
+    if (!c || !c.book_ids.includes(book)) return;
+    try {
+      const rs = await readsStore.forChallenge(c.id);
+      if (!rs.some((r) => r.book === book && r.chapter === ch)) await markChapterRead(c.id, book, ch, localToday());
+      const here = () => posRef.current.book === book && posRef.current.chapter === ch;
+      if (here()) setAlreadyRead(true);
+      const pending = await runSync();
+      if (here()) setMarkMsg(pending > 0 ? "Écoute terminée : chapitre marqué comme lu sur l’appareil. Il sera envoyé dès que la connexion revient." : "Écoute terminée : chapitre marqué comme lu.");
+    } catch (e) { console.error("Lecture audio non enregistrée :", e); }
+  }, []);
+
   async function applyMark(verse: number, patch: { favorite?: boolean; color?: MarkColor | null }) {
     try {
       const m = await setMark(pos.book, pos.chapter, verse, patch);
@@ -315,7 +330,7 @@ export function BibleReader() {
       )}
 
       {audio.open && (
-        <AudioPlayer version={version} book={pos.book} chapter={pos.chapter} label={name(pos)} verses={chapter?.v ?? null} onNext={goNext} onPrev={goPrev} onSpeaking={setSpeaking}
+        <AudioPlayer version={version} book={pos.book} chapter={pos.chapter} label={name(pos)} verses={chapter?.v ?? null} onNext={goNext} onPrev={goPrev} onSpeaking={setSpeaking} onFinished={(b, c) => void onListened(b, c)}
           current={speaking} follow={follow} onFollow={() => setFollow(true)} seek={seek} autoPlay={audio.autoPlay} hidden={selected !== null}
           onClose={() => { setAudio({ open: false, autoPlay: false }); setSeek(null); }} />
       )}

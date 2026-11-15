@@ -24,6 +24,8 @@ export interface AudioPlayerProps {
   autoPlay?: boolean;
   /** Masque la barre (panneau d'un verset ouvert) sans couper le son. */
   hidden?: boolean;
+  /** Le chapitre a été écouté jusqu'au bout (appelé avant de passer au suivant). */
+  onFinished?: (book: string, chapter: number) => void;
   onClose: () => void;
 }
 
@@ -43,6 +45,7 @@ export function AudioPlayer(p: AudioPlayerProps) {
   const [busy, setBusy] = useState(false);
   const [hasVoice, setHasVoice] = useState(true);
   const [more, setMore] = useState(false);
+  const [mini, setMini] = useState(false); // lecteur réduit : le son continue
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const latest = useRef(p); latest.current = p;
@@ -79,7 +82,7 @@ export function AudioPlayer(p: AudioPlayerProps) {
     const verses = latest.current.verses;
     if (!verses || typeof speechSynthesis === "undefined") return;
     stopTts();
-    if (i >= verses.length) { setPlaying(false); latest.current.onSpeaking(null); ttsIdx.current = 0; if (autoRef.current && latest.current.onNext()) wantPlay.current = true; return; }
+    if (i >= verses.length) { latest.current.onFinished?.(latest.current.book, latest.current.chapter); setPlaying(false); latest.current.onSpeaking(null); ttsIdx.current = 0; if (autoRef.current && latest.current.onNext()) wantPlay.current = true; return; }
     const [n, t] = verses[i] as [number, string];
     const mine = ++token.current; ttsOn.current = true; ttsIdx.current = i;
     setPlaying(true); setStatus(null); latest.current.onSpeaking(n);
@@ -202,7 +205,27 @@ export function AudioPlayer(p: AudioPlayerProps) {
       className={`min-h-11 flex-1 rounded-xl px-3 text-sm font-medium transition disabled:opacity-40 ${mode === m ? "bg-surface text-ink shadow-card" : "text-muted"}`}>{text}</button>
   );
 
-  return (
+  const audioEl = (
+    <audio ref={audioRef} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+      onTimeUpdate={trackVerse} onSeeked={trackVerse} onLoadedMetadata={() => { applySeek(); trackVerse(); }}
+      onEnded={() => { latest.current.onFinished?.(latest.current.book, latest.current.chapter); setPlaying(false); if (autoRef.current && latest.current.onNext()) wantPlay.current = true; }}
+      onError={() => { if (audioRef.current?.getAttribute("src")) setStatus("Lecture impossible : vérifiez la connexion."); }} />
+  );
+
+  const small = (
+    <div role="region" aria-label={`Écoute de ${p.label} (réduite)`} className={`audio-dock fixed right-3 z-40 flex max-w-[calc(100%-1.5rem)] animate-fade-up items-center gap-1 rounded-full border border-line bg-surface/95 p-1.5 shadow-lift backdrop-blur-xl ${p.hidden ? "invisible" : ""}`}>
+      <button type="button" disabled={disabled} onClick={toggle} aria-label={playing ? "Pause" : "Lecture"}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-forest text-bg shadow-card transition active:scale-95 disabled:opacity-40">
+        <Icon name={playing ? "pause" : "play"} size={20} filled={!playing} strokeWidth={playing ? 3 : 1.8} />
+      </button>
+      <button type="button" onClick={() => setMini(false)} aria-label="Agrandir le lecteur" className="flex min-h-11 min-w-0 items-center gap-1 rounded-full px-2 text-sm font-semibold transition hover:bg-bg">
+        <span className="truncate">{p.label}</span><Icon name="chevron-up" size={18} className="shrink-0 text-muted" />
+      </button>
+      <button type="button" onClick={p.onClose} aria-label="Arrêter l’écoute" className={icon}><Icon name="x" size={18} /></button>
+    </div>
+  );
+
+  const full = (
     <div role="region" aria-label={`Écoute de ${p.label}`} className={`audio-dock fixed inset-x-3 z-40 mx-auto max-w-md animate-fade-up overflow-hidden rounded-[1.6rem] border border-line bg-surface/95 shadow-lift backdrop-blur-xl ${p.hidden ? "invisible" : ""}`}>
       {more && (
         <div className="space-y-3 border-b border-line p-3">
@@ -218,6 +241,7 @@ export function AudioPlayer(p: AudioPlayerProps) {
             : <button type="button" onClick={() => void download()} disabled={busy} className="btn-ghost min-h-11 w-full gap-1.5 text-sm"><Icon name="download" size={16} />{busy ? "Téléchargement…" : "Garder pour écouter sans connexion"}</button>)}
           {mode === "rec" && aud && <p className="px-1 text-[0.7rem] leading-relaxed text-muted">Enregistrement : <a className="underline" href={aud.sourceUrl} target="_blank" rel="noopener noreferrer">{aud.provider}</a> · <a className="underline" href={aud.licenseUrl} target="_blank" rel="noopener noreferrer">{aud.license}</a></p>}
           {mode === "tts" && <p className="px-1 text-[0.7rem] leading-relaxed text-muted">La qualité dépend des voix installées sur votre téléphone (réglages de synthèse vocale).</p>}
+          <button type="button" onClick={p.onClose} className="btn-ghost min-h-11 w-full gap-1.5 text-sm"><Icon name="x" size={16} />Arrêter l’écoute</button>
         </div>
       )}
 
@@ -234,13 +258,12 @@ export function AudioPlayer(p: AudioPlayerProps) {
         {!recFailed && !p.follow && p.current !== null && <button type="button" onClick={p.onFollow} className="min-h-11 shrink-0 rounded-full bg-forest/10 px-3 text-sm font-semibold text-forest">Suivre</button>}
         <button type="button" onClick={changeRate} aria-label={`Vitesse ${rate}`} className="min-h-11 min-w-11 shrink-0 rounded-full px-1.5 text-sm font-semibold text-muted hover:bg-bg">{rate}×</button>
         <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} aria-label="Options d’écoute" className={`${icon} ${more ? "bg-bg text-ink" : ""}`}><Icon name="more" size={22} strokeWidth={3.2} /></button>
-        <button type="button" onClick={p.onClose} aria-label="Fermer le lecteur" className={icon}><Icon name="x" size={19} /></button>
+        <button type="button" onClick={() => { setMini(true); setMore(false); }} aria-label="Réduire le lecteur (le son continue)" className={icon}><Icon name="chevron-down" size={22} /></button>
       </div>
 
-      <audio ref={audioRef} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
-        onTimeUpdate={trackVerse} onSeeked={trackVerse} onLoadedMetadata={() => { applySeek(); trackVerse(); }}
-        onEnded={() => { setPlaying(false); if (autoRef.current && latest.current.onNext()) wantPlay.current = true; }}
-        onError={() => { if (audioRef.current?.getAttribute("src")) setStatus("Lecture impossible : vérifiez la connexion."); }} />
     </div>
   );
+
+  // l'élément <audio> reste à la même place : réduire ou agrandir ne coupe pas le son
+  return <>{mini ? small : full}{audioEl}</>;
 }

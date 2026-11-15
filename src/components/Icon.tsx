@@ -28,6 +28,7 @@ const PATHS = {
   highlighter: "M14 4l6 6-8 8H7v-5zM4 21h6",
   crown: "M4 8l4 4 4-6 4 6 4-4-2 11H6z",
   "chevron-down": "m6 9 6 6 6-6",
+  "chevron-up": "m6 15 6-6 6 6",
   type: "M3 19 8 5l5 14M4.8 14h6.4M14 19l3.5-9 3.5 9M15.2 16h4.6",
   more: "M5 12h.01M12 12h.01M19 12h.01",
   headphones: "M4 16v-4a8 8 0 0 1 16 0v4M4 16a2 2 0 0 1 2-2h1v6H6a2 2 0 0 1-2-2zM20 16a2 2 0 0 0-2-2h-1v6h1a2 2 0 0 0 2-2z",

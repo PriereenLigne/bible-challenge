@@ -15,6 +15,7 @@ import { NoteBlock } from "@/components/NoteBlock";
 import { Notice } from "@/components/Notice";
 import { VerseSheet } from "@/components/VerseSheet";
 import { PassagePicker } from "@/components/reader/PassagePicker";
+import { VerseSearch } from "@/components/VerseSearch";
 import { ReaderSettings } from "@/components/reader/ReaderSettings";
 import { LEGAL } from "@/lib/legal";
 import { shareVerseImage } from "@/lib/share/verse-image";
@@ -152,6 +153,7 @@ export function BibleReader() {
   }, [saveLast]);
   useEffect(() => { if (overlay) delete document.documentElement.dataset.immersive; }, [overlay]);
 
+  const openPassage = useCallback((p: Pos, verse?: number) => { restoreY.current = null; setPos(p); if (verse) setJump(verse); }, []);
   const goNext = useCallback(() => { const n = step(posRef.current, 1); if (n) setPos(n); return n !== null; }, []);
   const goPrev = useCallback(() => { const n = step(posRef.current, -1); if (n) setPos(n); return n !== null; }, []);
 
@@ -245,6 +247,7 @@ export function BibleReader() {
           </button>
           <button type="button" className={bar} disabled={!next} onClick={goNext} aria-label={next ? `Chapitre suivant : ${name(next)}` : "Chapitre suivant"}><Icon name="chevron-right" size={22} /></button>
           <span className="mx-1 h-6 w-px bg-line" aria-hidden="true" />
+          <VerseSearch className="shrink-0" onOpen={(r) => openPassage({ book: r.book, chapter: r.chapter }, r.verse ?? undefined)} />
           <button type="button" className={`${bar} ${audio.open ? "bg-forest/10 text-forest" : ""}`} aria-pressed={audio.open} aria-label={audio.open ? "Fermer l’écoute" : "Écouter ce chapitre"}
             onClick={() => setAudio((a) => (a.open ? { open: false, autoPlay: false } : { open: true, autoPlay: true }))}><Icon name="headphones" size={21} /></button>
           <button type="button" className={bar} aria-label="Affichage du texte" aria-haspopup="dialog" onClick={() => setSettings(true)}><Icon name="type" size={21} /></button>
@@ -336,7 +339,7 @@ export function BibleReader() {
           current={speaking} follow={follow} onFollow={() => setFollow(true)} seek={seek} autoPlay={audio.autoPlay} hidden={selected !== null}
           onClose={() => { setAudio({ open: false, autoPlay: false }); setSeek(null); }} />
       )}
-      <PassagePicker open={picker} onClose={() => setPicker(false)} current={pos} onPick={(p, v) => { restoreY.current = null; setPos(p); if (v) setJump(v); }} />
+      <PassagePicker open={picker} onClose={() => setPicker(false)} current={pos} onPick={openPassage} />
       <ReaderSettings open={settings} onClose={() => setSettings(false)} prefs={prefs} onChange={updatePrefs} version={version} />
     </div>
   );

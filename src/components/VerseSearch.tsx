@@ -2,14 +2,17 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { readerHref } from "@/lib/bible/params";
-import { formatReference, parseReference } from "@/lib/bible/reference";
+import { formatReference, parseReference, type VerseRef } from "@/lib/bible/reference";
 import { Icon } from "@/components/Icon";
 import { Sheet } from "@/components/reader/Sheet";
 
 const EXAMPLES = ["Jean 3:16", "Ps 23", "Rm 8 28", "1Co13", "Jr 29.11"];
 
-/** Bouton loupe de l'en-tête : on tape « Jean 3:16 », « Jn3 16 »… et le passage s'ouvre dans la lecture. */
-export function VerseSearch() {
+/**
+ * Bouton loupe, présent sur toutes les pages : on tape « Jean 3:16 », « Jn3 16 »… et le passage s'ouvre dans la lecture.
+ * Dans le lecteur, `onOpen` ouvre le passage sur place (sans recharger la page).
+ */
+export function VerseSearch({ onOpen, className = "ml-auto" }: { onOpen?: (r: VerseRef) => void; className?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -18,13 +21,14 @@ export function VerseSearch() {
   function go(text = q) {
     const r = parseReference(text); if (!r) return;
     setOpen(false); setQ("");
+    if (onOpen) { onOpen(r); return; }
     router.push(readerHref(r.book, r.chapter, undefined, r.verse ?? undefined));
   }
 
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-label="Rechercher un verset" aria-haspopup="dialog"
-        className="ml-auto flex h-11 w-11 items-center justify-center rounded-full text-ink/80 transition hover:bg-surface active:scale-95">
+        className={`${className} flex h-11 w-11 items-center justify-center rounded-full text-ink/80 transition hover:bg-surface active:scale-95`}>
         <Icon name="search" size={21} />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Rechercher un verset">

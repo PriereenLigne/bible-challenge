@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: { icon: [{ url: "/logo.svg", type: "image/svg+xml" }, { url: "/icon-192.png", sizes: "192x192", type: "image/png" }], apple: "/apple-touch-icon.png" },
 };
-export const viewport: Viewport = { themeColor: "#173F35", width: "device-width", initialScale: 1, viewportFit: "cover" };
+export const viewport: Viewport = { themeColor: "#173F35", width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content" };
 
 // Applique le thème choisi avant l'affichage, pour éviter un flash clair → sombre.
 const THEME_SCRIPT = `try{var t=localStorage.getItem("bc-theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}`;

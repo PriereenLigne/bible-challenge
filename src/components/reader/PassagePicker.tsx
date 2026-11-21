@@ -2,14 +2,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { BOOK_BY_ID, PROTESTANT_CANON } from "@/lib/bible/canon";
 import { fold } from "@/lib/reader/prefs";
+import { formatReference, parseReference } from "@/lib/bible/reference";
 import { Icon } from "@/components/Icon";
 import { Sheet } from "@/components/reader/Sheet";
 
 interface Pos { book: string; chapter: number }
 
-/** Choix du passage en deux touchers : le livre, puis le chapitre. Recherche sans accents. */
+/**
+ * Choix du passage en deux touchers : le livre, puis le chapitre.
+ * Ou bien on tape directement la référence : « Jean 3:16 », « Jn3 16 », « 1co 13 »… (sans accents, espaces libres).
+ */
 export function PassagePicker({ open, onClose, current, onPick }: {
-  open: boolean; onClose: () => void; current: Pos; onPick: (p: Pos) => void;
+  open: boolean; onClose: () => void; current: Pos; onPick: (p: Pos, verse?: number) => void;
 }) {
   const curDef = BOOK_BY_ID.get(current.book);
   const [tab, setTab] = useState<"AT" | "NT">(curDef?.testament === "NT" ? "NT" : "AT");
@@ -18,10 +22,19 @@ export function PassagePicker({ open, onClose, current, onPick }: {
 
   useEffect(() => { if (open) { setBook(null); setQ(""); setTab(BOOK_BY_ID.get(current.book)?.testament === "NT" ? "NT" : "AT"); } }, [open, current.book]);
 
+  // une référence complète (avec chapitre) s'ouvre directement ; un nom ou une abréviation filtre les livres
+  const ref = useMemo(() => (/\d/.test(q.replace(/^\s*[1-3]\s*(?=\D)/, "")) ? parseReference(q) : null), [q]);
   const list = useMemo(() => {
     const f = fold(q);
-    return f ? PROTESTANT_CANON.filter((b) => fold(b.name).includes(f)) : PROTESTANT_CANON.filter((b) => b.testament === tab);
+    if (!f) return PROTESTANT_CANON.filter((b) => b.testament === tab);
+    const abbr = parseReference(q)?.book;
+    return PROTESTANT_CANON.filter((b) => b.id === abbr || fold(b.name).includes(f));
   }, [q, tab]);
+
+  function openRef() {
+    if (!ref) return;
+    onPick({ book: ref.book, chapter: ref.chapter }, ref.verse ?? undefined); onClose();
+  }
 
   function chooseBook(id: string) {
     const def = BOOK_BY_ID.get(id); if (!def) return;
@@ -48,12 +61,21 @@ export function PassagePicker({ open, onClose, current, onPick }: {
         </div>
       ) : (
         <div>
-          <label className="relative mt-1 block">
-            <span className="sr-only">Rechercher un livre</span>
-            <Icon name="search" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un livre…" autoComplete="off"
-              className="min-h-12 w-full rounded-2xl border border-line bg-bg pl-10 pr-3 text-base" />
-          </label>
+          <form role="search" onSubmit={(e) => { e.preventDefault(); if (ref) openRef(); else if (list.length === 1 && list[0]) chooseBook(list[0].id); }}>
+            <label className="relative mt-1 block">
+              <span className="sr-only">Rechercher un livre ou un verset</span>
+              <Icon name="search" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Livre ou verset : Jean 3:16" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} enterKeyHint="go"
+                className="min-h-12 w-full rounded-2xl border border-line bg-bg pl-10 pr-3 text-base" />
+            </label>
+          </form>
+          {ref && (
+            <button type="button" onClick={openRef}
+              className="mt-3 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl bg-forest px-4 text-left text-bg transition active:scale-[.98]">
+              <span><span className="block text-xs opacity-80">Ouvrir le passage</span><span className="block font-reading text-lg font-semibold">{formatReference(ref)}</span></span>
+              <Icon name="chevron-right" size={22} className="shrink-0" />
+            </button>
+          )}
           {!q && (
             <div role="tablist" aria-label="Testament" className="mt-3 flex rounded-2xl border border-line bg-bg p-1">
               {(["AT", "NT"] as const).map((t) => (
@@ -77,7 +99,7 @@ export function PassagePicker({ open, onClose, current, onPick }: {
               );
             })}
           </ul>
-          {list.length === 0 && <p className="mt-6 text-center text-sm text-muted">Aucun livre ne correspond à « {q} ».</p>}
+          {list.length === 0 && !ref && <p className="mt-6 text-center text-sm text-muted">Aucun livre ne correspond à « {q} ».</p>}
         </div>
       )}
     </Sheet>

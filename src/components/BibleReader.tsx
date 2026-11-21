@@ -108,7 +108,9 @@ export function BibleReader() {
     if (!chapter) return;
     const key = `${pos.book}:${pos.chapter}`;
     if (jump !== null) {
-      shownKey.current = key; const j = jump; setSelected(j); setJump(null);
+      shownKey.current = key; const j = jump; setJump(null);
+      if (!chapter.v.some(([k]) => k === j)) { window.scrollTo(0, 0); return; } // verset absent de ce chapitre : haut de page
+      setSelected(j);
       requestAnimationFrame(() => document.getElementById(`v-${j}`)?.scrollIntoView({ block: "center", behavior: "smooth" }));
       return;
     }
@@ -334,7 +336,7 @@ export function BibleReader() {
           current={speaking} follow={follow} onFollow={() => setFollow(true)} seek={seek} autoPlay={audio.autoPlay} hidden={selected !== null}
           onClose={() => { setAudio({ open: false, autoPlay: false }); setSeek(null); }} />
       )}
-      <PassagePicker open={picker} onClose={() => setPicker(false)} current={pos} onPick={setPos} />
+      <PassagePicker open={picker} onClose={() => setPicker(false)} current={pos} onPick={(p, v) => { restoreY.current = null; setPos(p); if (v) setJump(v); }} />
       <ReaderSettings open={settings} onClose={() => setSettings(false)} prefs={prefs} onChange={updatePrefs} version={version} />
     </div>
   );

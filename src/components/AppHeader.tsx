@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { VerseSearch } from "@/components/VerseSearch";
 
 export function AppHeader() {
   // L'écran de lecture a sa propre barre : on lui laisse toute la place.
@@ -13,6 +14,7 @@ export function AppHeader() {
           <img src="/logo.svg" alt="" width={30} height={30} className="rounded-lg shadow-card" />
           <span className="font-reading text-lg font-semibold tracking-tight text-forest">Bible Challenge</span>
         </Link>
+        <VerseSearch />
       </div>
     </header>
   );
